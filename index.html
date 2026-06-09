@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校車路線實景查詢系統</title>
+    <style>
+        /* 基礎版面配置 */
+        body { font-family: "Microsoft JhengHei", sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; background: #f4f4f4; }
+        
+        /* 左側站點列表 */
+        .sidebar { width: 350px; background: white; border-right: 1px solid #ddd; overflow-y: auto; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+        .sidebar-header { background: #003366; color: white; padding: 25px 20px; }
+        .sidebar-header h2 { margin: 0; font-size: 1.4em; }
+        .sidebar-header p { margin: 5px 0 0; font-size: 0.85em; opacity: 0.8; }
+
+        .station-list { flex-grow: 1; }
+        .station-item { 
+            padding: 20px; border-bottom: 1px solid #eee; cursor: pointer; 
+            transition: all 0.2s ease; position: relative;
+        }
+        .station-item:hover { background: #f0f7ff; }
+        .station-item.active { background: #e8f0fe; border-left: 6px solid #003366; }
+        
+        .time { color: #d9534f; font-weight: bold; font-size: 0.95em; display: block; margin-bottom: 4px; }
+        .station-name { font-size: 1.1em; color: #222; font-weight: bold; }
+        .station-desc { font-size: 0.85em; color: #666; margin-top: 6px; display: block; line-height: 1.4; }
+
+        /* 右側街景區域 */
+        .map-container { flex-grow: 1; position: relative; background: #e5e3df; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* 手機版適應 (螢幕寬度小於 768px 時) */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: 40vh; }
+            .map-container { height: 60vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>校車 A 線路線圖</h2>
+            <p>點選下方站點查看 360° 乘車實景</p>
+        </div>
+        
+        <div class="station-list">
+            <!-- 站點 1 -->
+            <div class="station-item active" onclick="changeView(this, 'https://www.google.com/maps/embed?pb=!4v1776301229323!6m8!1m7!1sCUuxOkJCT-DueFtFkbrUfg!2m2!1d25.04711529877657!2d121.5173211795062!3f237.3836220601185!4f2.170994478527305!5f0.7820865974627469')">
+                <span class="time">07:00 發車</span>
+                <span class="station-name">第一站：台北車站</span>
+                <span class="station-desc">承德路一段門口，靠近轉運站側。</span>
+            </div>
+
+            <!-- 站點 2 -->
+            <div class="station-item" onclick="changeView(this, 'https://www.google.com/maps/embed?pb=!4v1776301551725!6m8!1m7!1sPyCDnS-igaTTJpqrLfg7QQ!2m2!1d25.04203236598866!2d121.532880904256!3f116.99519214244638!4f6.314907728715411!5f0.7820865974627469')">
+                <span class="time">07:15 到達</span>
+                <span class="station-name">第二站：忠孝新生捷運站</span>
+                <span class="station-desc">3 號出口旁，YouBike 站點附近。</span>
+            </div>
+
+            <!-- 站點 3 -->
+            <div class="station-item" onclick="changeView(this, 'https://www.google.com/maps/embed?pb=!4v1776301682797!6m8!1m7!1s1ccEwtnbHaUXBDav0ltSWA!2m2!1d25.04106316946289!2d121.5652235059378!3f193.17857665720433!4f-8.455646624835069!5f0.7820865974627469')">
+                <span class="time">07:35 到達</span>
+                <span class="station-name">第三站：市政府轉運站</span>
+                <span class="station-desc">基隆路一段，校車專用臨時停靠區。</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <!-- 初始顯示第一站的嵌入網址 -->
+        <iframe id="mapFrame" 
+                src="https://www.google.com/maps/embed?pb=!4v1776301229323!6m8!1m7!1sCUuxOkJCT-DueFtFkbrUfg!2m2!1d25.04711529877657!2d121.5173211795062!3f237.3836220601185!4f2.170994478527305!5f0.7820865974627469" 
+                allowfullscreen="" 
+                loading="lazy">
+        </iframe>
+    </div>
+
+    <script>
+        function changeView(element, embedUrl) {
+            // 1. 切換右側街景 iframe
+            const frame = document.getElementById('mapFrame');
+            frame.src = embedUrl;
+
+            // 2. 更新左側清單選取狀態 (UI 反饋)
+            const items = document.querySelectorAll('.station-item');
+            items.forEach(item => item.classList.remove('active'));
+            element.classList.add('active');
+            
+            // 3. (選配) 在手機版點擊後自動捲動回頂部地圖區
+            if (window.innerWidth <= 768) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    </script>
+
+</body>
+</html>
