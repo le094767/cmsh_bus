@@ -1,101 +1,234 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>校車路線實景查詢系統</title>
-    <style>
-        /* 基礎版面配置 */
-        body { font-family: "Microsoft JhengHei", sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; background: #f4f4f4; }
-        
-        /* 左側站點列表 */
-        .sidebar { width: 350px; background: white; border-right: 1px solid #ddd; overflow-y: auto; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
-        .sidebar-header { background: #003366; color: white; padding: 25px 20px; }
-        .sidebar-header h2 { margin: 0; font-size: 1.4em; }
-        .sidebar-header p { margin: 5px 0 0; font-size: 0.85em; opacity: 0.8; }
-
-        .station-list { flex-grow: 1; }
-        .station-item { 
-            padding: 20px; border-bottom: 1px solid #eee; cursor: pointer; 
-            transition: all 0.2s ease; position: relative;
-        }
-        .station-item:hover { background: #f0f7ff; }
-        .station-item.active { background: #e8f0fe; border-left: 6px solid #003366; }
-        
-        .time { color: #d9534f; font-weight: bold; font-size: 0.95em; display: block; margin-bottom: 4px; }
-        .station-name { font-size: 1.1em; color: #222; font-weight: bold; }
-        .station-desc { font-size: 0.85em; color: #666; margin-top: 6px; display: block; line-height: 1.4; }
-
-        /* 右側街景區域 */
-        .map-container { flex-grow: 1; position: relative; background: #e5e3df; }
-        iframe { width: 100%; height: 100%; border: none; }
-        
-        /* 手機版適應 (螢幕寬度小於 768px 時) */
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            .sidebar { width: 100%; height: 40vh; }
-            .map-container { height: 60vh; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校車路線與時刻查詢系統</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    h2 {
+      margin-top: 0;
+      color: #1e3a8a;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 10px;
+    }
+    .select-group {
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 8px;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fff;
+    }
+    #map {
+      height: 450px;
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+    #pano {
+      height: 300px;
+      width: 100%;
+      margin-top: 20px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      display: none;
+    }
+    .hint {
+      font-size: 14px;
+      color: #6b7280;
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h2>校車 A 線路線圖</h2>
-            <p>點選下方站點查看 360° 乘車實景</p>
-        </div>
+  <div class="container">
+    <h2>🚌 校車路線時刻查詢</h2>
+    
+    <div class="select-group">
+      <label for="routeSelect">請選擇校車路線：</label>
+      <select id="routeSelect" onchange="loadSelectedRoute()">
+        <option value="">-- 請選擇 --</option>
+      </select>
+      <p class="hint">💡 提示：點擊地圖上的站點圖標，下方可查看 Google 實景街景影像。</p>
+    </div>
+    
+    <!-- Google 地圖顯示區域 -->
+    <div id="map"></div>
+    
+    <!-- Google 街景顯示區域 -->
+    <div id="pano"></div>
+  </div>
+
+  <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
+  <script src="https://googleapis.com" async defer></script>
+  
+  <script>
+    let map;
+    let globalData = [];
+    let markers = [];
+    let routeLine = null;
+
+    // 1. 初始化 Google 地圖
+    function initMap() {
+      // 預設中心點設定在台灣中部
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 23.555, lng: 120.428 },
+        zoom: 12,
+        mapTypeControl: false
+      });
+      
+      // 地圖載入完成後，開始拉取 JSON 資料
+      fetchRoutes();
+    }
+
+    // 2. 從 GitHub 讀取 Excel 轉出的平鋪型 JSON 檔案
+    async function fetchRoutes() {
+      // ⚠️ 請替換為您在 GitHub 儲存庫中 bus_data.json 的 Raw (原始資料) 連結
+      const GITHUB_JSON_URL = 'https://githubusercontent.com';
+      
+      try {
+        const response = await fetch(GITHUB_JSON_URL);
+        if (!response.ok) throw new Error('網路回應不成功');
         
-        <div class="station-list">
-            <!-- 站點 1 -->
-            <div class="station-item active" onclick="changeView(this, 'https://www.google.com/maps/embed?pb=!4v1776301229323!6m8!1m7!1sCUuxOkJCT-DueFtFkbrUfg!2m2!1d25.04711529877657!2d121.5173211795062!3f237.3836220601185!4f2.170994478527305!5f0.7820865974627469')">
-                <span class="time">07:00 發車</span>
-                <span class="station-name">第一站：台北車站</span>
-                <span class="station-desc">承德路一段門口，靠近轉運站側。</span>
-            </div>
+        globalData = await response.json();
+        
+        // 自動過濾 Excel 多行資料中重複的 route_id，提取出唯一的路線清單
+        const uniqueRoutes = [];
+        const seen = new Set();
+        
+        globalData.forEach(row => {
+          if (row.route_id && !seen.has(row.route_id)) {
+            seen.add(row.route_id);
+            uniqueRoutes.push({ id: row.route_id, name: row.route_name });
+          }
+        });
 
-            <!-- 站點 2 -->
-            <div class="station-item" onclick="changeView(this, 'https://www.google.com/maps/embed?pb=!4v1776301551725!6m8!1m7!1sPyCDnS-igaTTJpqrLfg7QQ!2m2!1d25.04203236598866!2d121.532880904256!3f116.99519214244638!4f6.314907728715411!5f0.7820865974627469')">
-                <span class="time">07:15 到達</span>
-                <span class="station-name">第二站：忠孝新生捷運站</span>
-                <span class="station-desc">3 號出口旁，YouBike 站點附近。</span>
-            </div>
+        // 將路線選單渲染至網頁下拉選單
+        const select = document.getElementById('routeSelect');
+        uniqueRoutes.forEach(route => {
+          const opt = document.createElement('option');
+          opt.value = route.id;
+          opt.innerText = route.name;
+          select.appendChild(opt);
+        });
+        
+      } catch (error) {
+        console.error('讀取校車資料失敗:', error);
+        alert('無法載入校車路線資料，請檢查 GitHub 網址設定或 API 狀態。');
+      }
+    }
 
-            <!-- 站點 3 -->
-            <div class="station-item" onclick="changeView(this, 'https://www.google.com/maps/embed?pb=!4v1776301682797!6m8!1m7!1s1ccEwtnbHaUXBDav0ltSWA!2m2!1d25.04106316946289!2d121.5652235059378!3f193.17857665720433!4f-8.455646624835069!5f0.7820865974627469')">
-                <span class="time">07:35 到達</span>
-                <span class="station-name">第三站：市政府轉運站</span>
-                <span class="station-desc">基隆路一段，校車專用臨時停靠區。</span>
-            </div>
-        </div>
-    </div>
+    // 3. 當使用者切換路線時，篩選平鋪資料並渲染地圖
+    function loadSelectedRoute() {
+      const selectedRouteId = document.getElementById('routeSelect').value;
+      
+      // 清除舊的地圖標記、路線折線與街景
+      markers.forEach(m => m.setMap(null));
+      markers = [];
+      if (routeLine) {
+        routeLine.setMap(null);
+        routeLine = null;
+      }
+      document.getElementById('pano').style.display = 'none';
 
-    <div class="map-container">
-        <!-- 初始顯示第一站的嵌入網址 -->
-        <iframe id="mapFrame" 
-                src="https://www.google.com/maps/embed?pb=!4v1776301229323!6m8!1m7!1sCUuxOkJCT-DueFtFkbrUfg!2m2!1d25.04711529877657!2d121.5173211795062!3f237.3836220601185!4f2.170994478527305!5f0.7820865974627469" 
-                allowfullscreen="" 
-                loading="lazy">
-        </iframe>
-    </div>
+      // 若未選擇任何路線則返回
+      if (!selectedRouteId) return;
 
-    <script>
-        function changeView(element, embedUrl) {
-            // 1. 切換右側街景 iframe
-            const frame = document.getElementById('mapFrame');
-            frame.src = embedUrl;
+      // 自全域資料中過濾出屬於該路線且啟用的站點，並依 sequence 數字排序
+      const routeStops = globalData
+        .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
+        .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
 
-            // 2. 更新左側清單選取狀態 (UI 反饋)
-            const items = document.querySelectorAll('.station-item');
-            items.forEach(item => item.classList.remove('active'));
-            element.classList.add('active');
-            
-            // 3. (選配) 在手機版點擊後自動捲動回頂部地圖區
-            if (window.innerWidth <= 768) {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        }
-    </script>
+      if (routeStops.length === 0) {
+        alert('該路線目前無有效的站點資料。');
+        return;
+      }
 
+      const pathCoordinates = [];
+      const bounds = new google.maps.LatLngBounds();
+
+      // 遍歷所有站點並在畫面上打點
+      routeStops.forEach(stop => {
+        const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
+        pathCoordinates.push(position);
+        bounds.extend(position);
+
+        // A. 建立地圖圖標 (Marker)
+        const marker = new google.maps.Marker({
+          position: position,
+          map: map,
+          label: {
+            text: stop.sequence.toString(),
+            color: "#ffffff",
+            fontWeight: "bold"
+          },
+          title: `${stop.stop_name} (${stop.arrival_time})`
+        });
+        markers.push(marker);
+
+        // B. 建立站點資訊視窗 (InfoWindow)
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+        });
+
+        // 游標懸停在圖標上時顯示時間小視窗
+        marker.addListener('mouseover', () => infoWindow.open(map, marker));
+        marker.addListener('mouseout', () => infoWindow.close());
+
+        // C. 點擊圖標時觸發 Google 街景 (StreetView)
+        marker.addListener('click', () => {
+          const panoEl = document.getElementById('pano');
+          panoEl.style.display = 'block';
+          
+          // 在指定區塊渲染該站點經緯度的實景
+          new google.maps.StreetViewPanorama(panoEl, {
+            position: position,
+            pov: { heading: 165, pitch: 0 },
+            zoom: 1
+          });
+          
+          // 網頁自動平滑滾動到街景區塊
+          panoEl.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+
+      // 4. 繪製校車行駛軌跡的紅色折線 (Polyline)
+      routeLine = new google.maps.Polyline({
+        path: pathCoordinates,
+        geodesic: true,
+        strokeColor: '#ef4444', // 紅色線段
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
+      routeLine.setMap(map);
+
+      // 5. 根據所有站點的範圍自動縮放、調整地圖視野
+      map.fitBounds(bounds);
+    }
+  </script>
 </body>
 </html>
