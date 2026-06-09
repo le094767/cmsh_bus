@@ -109,7 +109,7 @@
     // 2. 從 GitHub 讀取 Excel 轉出的平鋪型 JSON 檔案
     async function fetchRoutes() {
       // ⚠️ 請替換為您在 GitHub 儲存庫中 bus_data.json 的 Raw (原始資料) 連結
-      const GITHUB_JSON_URL = 'https://github.com/le094767/cmsh_bus/blob/main/bus_data.json';
+      const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       
       try {
         const response = await fetch(GITHUB_JSON_URL);
