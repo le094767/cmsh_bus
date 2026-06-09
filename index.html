@@ -142,92 +142,141 @@
     }
 
     // 3. 當使用者切換路線時，篩選平鋪資料並渲染地圖
-    function loadSelectedRoute() {
-      const selectedRouteId = document.getElementById('routeSelect').value;
+    // 修改後的網頁邏輯：自動依循真實道路繪製校車路線
+function loadSelectedRoute() {
+  const selectedRouteId = document.getElementById('routeSelect').value;
+  
+  // 1. 清除舊的地圖標記、路線折線與街景
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+  if (routeLine) {
+    routeLine.setMap(null);
+    routeLine = null;
+  }
+  document.getElementById('pano').style.display = 'none';
+
+  // 若未選擇任何路線則返回
+  if (!selectedRouteId) return;
+
+  // 2. 自全域資料中過濾出該路線站點，並依 sequence 排序
+  const routeStops = globalData
+    .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
+    .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
+
+  if (routeStops.length === 0) {
+    alert('該路線目前無有效的站點資料。');
+    return;
+  }
+
+  // 3. 建立地圖圖標 (Marker) 與 資訊視窗 (InfoWindow)
+  const bounds = new google.maps.LatLngBounds();
+  
+  routeStops.forEach(stop => {
+    const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
+    bounds.extend(position);
+
+    const marker = new google.maps.Marker({
+      position: position,
+      map: map,
+      label: {
+        text: stop.sequence.toString(),
+        color: "#ffffff",
+        fontWeight: "bold"
+      },
+      title: `${stop.stop_name} (${stop.arrival_time})`,
+      zIndex: 99 // 確保圖標永遠在道路線段的上方
+    });
+    markers.push(marker);
+
+    const infoWindow = new google.maps.InfoWindow({
+      content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+    });
+
+    marker.addListener('mouseover', () => infoWindow.open(map, marker));
+    marker.addListener('mouseout', () => infoWindow.close());
+
+    marker.addListener('click', () => {
+      const panoEl = document.getElementById('pano');
+      panoEl.style.display = 'block';
+      new google.maps.StreetViewPanorama(panoEl, {
+        position: position,
+        pov: { heading: 165, pitch: 0 },
+        zoom: 1
+      });
+      panoEl.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // 4. 呼叫 Google Directions API 進行道路最佳路徑規劃
+  const directionsService = new google.maps.DirectionsService();
+  
+  // 提取起點、終點、與中間所有經過的停靠站 (Waypoints)
+  const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
+  const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
+  
+  const waypoints = [];
+  // 如果站點總數大於 2，把中間的站點包進 waypoints 陣列中
+  for (let i = 1; i < routeStops.length - 1; i++) {
+    waypoints.push({
+      location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
+      stopover: true // 確保校車會確實經過並停靠該路口
+    });
+  }
+
+  // 發送導航請求給 Google 伺服器
+  directionsService.route({
+    origin: origin,
+    destination: destination,
+    waypoints: waypoints,
+    optimizeWaypoints: false, // 嚴格按照 Excel 的 sequence 順序走，不讓 Google 自行重新排序
+    travelMode: google.maps.TravelMode.DRIVING // 設定為汽車行駛模式
+  }, function(response, status) {
+    if (status === google.maps.DirectionsStatus.OK) {
+      // 5. 撈出 Google 計算出來的真实道路經緯度軌跡
+      const legs = response.routes[0].legs;
+      const roadPath = [];
       
-      // 清除舊的地圖標記、路線折線與街景
-      markers.forEach(m => m.setMap(null));
-      markers = [];
-      if (routeLine) {
-        routeLine.setMap(null);
-        routeLine = null;
-      }
-      document.getElementById('pano').style.display = 'none';
-
-      // 若未選擇任何路線則返回
-      if (!selectedRouteId) return;
-
-      // 自全域資料中過濾出屬於該路線且啟用的站點，並依 sequence 數字排序
-      const routeStops = globalData
-        .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
-        .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
-
-      if (routeStops.length === 0) {
-        alert('該路線目前無有效的站點資料。');
-        return;
-      }
-
-      const pathCoordinates = [];
-      const bounds = new google.maps.LatLngBounds();
-
-      // 遍歷所有站點並在畫面上打點
-      routeStops.forEach(stop => {
-        const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-        pathCoordinates.push(position);
-        bounds.extend(position);
-
-        // A. 建立地圖圖標 (Marker)
-        const marker = new google.maps.Marker({
-          position: position,
-          map: map,
-          label: {
-            text: stop.sequence.toString(),
-            color: "#ffffff",
-            fontWeight: "bold"
-          },
-          title: `${stop.stop_name} (${stop.arrival_time})`
-        });
-        markers.push(marker);
-
-        // B. 建立站點資訊視窗 (InfoWindow)
-        const infoWindow = new google.maps.InfoWindow({
-          content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
-        });
-
-        // 游標懸停在圖標上時顯示時間小視窗
-        marker.addListener('mouseover', () => infoWindow.open(map, marker));
-        marker.addListener('mouseout', () => infoWindow.close());
-
-        // C. 點擊圖標時觸發 Google 街景 (StreetView)
-        marker.addListener('click', () => {
-          const panoEl = document.getElementById('pano');
-          panoEl.style.display = 'block';
-          
-          // 在指定區塊渲染該站點經緯度的實景
-          new google.maps.StreetViewPanorama(panoEl, {
-            position: position,
-            pov: { heading: 165, pitch: 0 },
-            zoom: 1
+      legs.forEach(leg => {
+        leg.steps.forEach(step => {
+          step.path.forEach(point => {
+            roadPath.push(point);
           });
-          
-          // 網頁自動平滑滾動到街景區塊
-          panoEl.scrollIntoView({ behavior: 'smooth' });
         });
       });
 
-      // 4. 繪製校車行駛軌跡的紅色折線 (Polyline)
+      // 6. 將依循道路的軌跡繪製成紅色折線
       routeLine = new google.maps.Polyline({
-        path: pathCoordinates,
+        path: roadPath,
         geodesic: true,
-        strokeColor: '#ef4444', // 紅色線段
+        strokeColor: '#ef4444', // 紅色線條
         strokeOpacity: 0.8,
-        strokeWeight: 4
+        strokeWeight: 5
       });
       routeLine.setMap(map);
-
-      // 5. 根據所有站點的範圍自動縮放、調整地圖視野
-      map.fitBounds(bounds);
+    } else {
+      console.error('道路路徑規劃失敗，原因: ' + status);
+      // 如果導航 API 失敗（例如某些點在無路可走的深山），則自動啟動直線備用方案，避免畫面壞掉
+      drawBackupStraightLine(routeStops);
     }
+  });
+
+  // 7. 自動調整地圖視野
+  map.fitBounds(bounds);
+}
+
+// 備用方案：若 Directions API 異常，自動切回直線連線
+function drawBackupStraightLine(routeStops) {
+  const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));
+  routeLine = new google.maps.Polyline({
+    path: pathCoordinates,
+    geodesic: true,
+    strokeColor: '#ffbb00', // 備用線條改為橘黃色以資區別
+    strokeOpacity: 0.8,
+    strokeWeight: 4
+  });
+  routeLine.setMap(map);
+}
+
   </script>
 </body>
 </html>
