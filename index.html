@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>校車路線與時刻查詢系統</title>
+  <title>校車路線與時刻查詢系統 (純站點標記版)</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -44,7 +44,7 @@
       background-color: #fff;
     }
     
-    /* 🖥️ 固定電腦版左右並排排版 */
+    /* 固定電腦版左右並排 */
     .main-content {
       display: flex;
       gap: 20px;
@@ -85,7 +85,7 @@
       margin-top: 5px;
     }
 
-    /* 側邊欄時間軸樣式 */
+    /* 時刻表樣式 */
     .sidebar-title {
       font-size: 18px;
       font-weight: bold;
@@ -141,7 +141,6 @@
       margin-top: 2px;
       font-weight: 500;
     }
-    /* 終點站專用醒目藍綠色字體 */
     .stop-end {
       font-size: 13px;
       color: #0d9488; 
@@ -155,7 +154,7 @@
       font-size: 14px;
     }
 
-    /* 進階標記專用的 CSS 樣式 */
+    /* 進階標記樣式 */
     .custom-marker-pin {
       background-color: #e11d48;
       color: white;
@@ -175,7 +174,7 @@
 <body>
 
   <div class="container">
-    <h2>🚌 校車路線時刻查詢</h2>
+    <h2>🚌 校車路線時刻查詢 (純站點標記版)</h2>
     
     <div class="select-group">
       <label for="routeSelect">請選擇校車路線：</label>
@@ -205,7 +204,6 @@
     let map;
     let globalData = [];
     let markers = [];
-    let routeLine = null;
     let AdvancedMarkerElementClass = null;
 
     // 1. 初始化 Google 地圖
@@ -269,21 +267,7 @@
       });
     }
 
-    // 4. 強制直線連線防禦方案
-    function drawBackupStraightLine(coords) {
-      if (routeLine) routeLine.setMap(null); 
-      
-      routeLine = new google.maps.Polyline({
-        path: coords,
-        geodesic: true,
-        strokeColor: '#2563eb', 
-        strokeOpacity: 0.8,
-        strokeWeight: 5
-      });
-      routeLine.setMap(map);
-    }
-
-    // 5. 切換路線的核心主要邏輯
+    // 4. 切換路線的核心主要邏輯
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
@@ -291,10 +275,6 @@
       // 清除舊標記
       markers.forEach(m => m.map = null);
       markers = [];
-      if (routeLine) {
-        routeLine.setMap(null);
-        routeLine = null;
-      }
       document.getElementById('pano').style.display = 'none';
 
       if (!selectedRouteId) {
@@ -314,13 +294,11 @@
       const ul = document.createElement('ul');
       ul.className = 'stop-list';
 
-      const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
       // 產生進階標記並建立時刻表
       routeStops.forEach((stop, index) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-        pathCoordinates.push(position);
         bounds.extend(position);
 
         const markerTag = document.createElement("div");
@@ -352,39 +330,44 @@
           markers.push(fallbackMarker);
           fallbackMarker.addListener('click', () => triggerStreetView(position));
         }
-   // 🎯【修改核心】：動態將最後一個站別文字改為「抵達時間」並帶入欄位值
+
+        // 動態將最後一個站別文字改為「抵達時間」並帶入欄位值
         const isLastStop = (index === routeStops.length - 1);
         let timeInfoHtml = '';
 
         if (isLastStop) {
-          // 如果是最後一站，帶入該站點的 arrival_time
           timeInfoHtml = `<div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>`;
         } else {
-          // 其餘非最後一站，維持原發車時間文字
           timeInfoHtml = `<div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>`;
         }
+
         // 生成右側面板站點項目
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
-${stop.sequence}
+          <div class="stop-badge">${stop.sequence}</div>
+          <div class="stop-info">
+            <div class="stop-name">${stop.stop_name}</div>
+            ${timeInfoHtml}
+          </div>
+        `;
+        
+        li.addEventListener('click', () => {
+          map.setCenter(position);
+          map.setZoom(16);
+          triggerStreetView(position);
+        });
 
-${stop.stop_name}
-${timeInfoHtml}
+        ul.appendChild(li);
+      });
 
-`;
-li.addEventListener('click', () => {
-map.setCenter(position);
-map.setZoom(16);
-triggerStreetView(position);
-});
-ul.appendChild(li);
-});
-sidebarContent.innerHTML = '';
-sidebarContent.appendChild(ul);
-// 共用街景函式
-function triggerStreetView(pos) {
-const panoEl = document.getElementById('pano');
+      sidebarContent.innerHTML = '';
+      sidebarContent.appendChild(ul);
+
+      // 共用街景函式
+      function triggerStreetView(pos) {
+        const panoEl = document.getElementById('pano');
+
 panoEl.style.display = 'block';
 new google.maps.StreetViewPanorama(panoEl, {
 position: pos,
@@ -393,46 +376,7 @@ zoom: 1
 });
 panoEl.scrollIntoView({ behavior: 'smooth' });
 }
-// 6. 道路規劃與繪製
-try {
-const directionsService = new google.maps.DirectionsService();
-const origin = pathCoordinates[0];
-const destination = pathCoordinates[pathCoordinates.length - 1];
-const waypoints = [];
-for (let i = 1; i < pathCoordinates.length - 1; i++) {
-waypoints.push({
-location: pathCoordinates[i],
-stopover: true
-});
-}
-directionsService.route({
-origin: origin,
-destination: destination,
-waypoints: waypoints,
-optimizeWaypoints: false,
-travelMode: google.maps.TravelMode.DRIVING
-}, function(response, status) {
-if (status === google.maps.DirectionsStatus.OK && response && response.routes && response.routes.length > 0) {
-const roadPath = response.routes[0].overview_path;
-if (roadPath && roadPath.length > 0) {
-routeLine = new google.maps.Polyline({
-path: roadPath,
-geodesic: true,
-strokeColor: '#ef4444',
-strokeOpacity: 0.8,
-strokeWeight: 5
-});
-routeLine.setMap(map);
-return;
-}
-}
-console.warn('Google 道路路徑計算不可用，自動切換為備用直線：', status);
-drawBackupStraightLine(pathCoordinates);
-});
-} catch (err) {
-console.error('導航引擎內部解析攔截，改由直線對接：', err);
-drawBackupStraightLine(pathCoordinates);
-}
+// 💡【核心改動】：此處完全刪除了 Polyline (畫線) 的調用，直接進入地圖邊界調整
 map.fitBounds(bounds);
 }
 window.initMap = initMap;
