@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>協同校車路線與時刻查詢系統</title>
+  <title>校車路線與時刻查詢系統</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -28,9 +28,6 @@
     }
     .select-group {
       margin-bottom: 20px;
-      background: #f0f4f8;
-      padding: 15px;
-      border-radius: 6px;
     }
     label {
       font-weight: bold;
@@ -47,7 +44,7 @@
       background-color: #fff;
     }
     
-    /* 左右兩欄主排版 */
+    /* 🖥️ 固定電腦版左右並排排版 */
     .main-content {
       display: flex;
       gap: 20px;
@@ -144,6 +141,13 @@
       margin-top: 2px;
       font-weight: 500;
     }
+    /* 終點站專用醒目藍綠色字體 */
+    .stop-end {
+      font-size: 13px;
+      color: #0d9488; 
+      margin-top: 2px;
+      font-weight: bold;
+    }
     .empty-sidebar-hint {
       color: #9ca3af;
       text-align: center;
@@ -171,7 +175,7 @@
 <body>
 
   <div class="container">
-    <h2>🚌 協同高級中學校車路線時刻查詢</h2>
+    <h2>🚌 校車路線時刻查詢</h2>
     
     <div class="select-group">
       <label for="routeSelect">請選擇校車路線：</label>
@@ -197,7 +201,6 @@
     <div id="pano"></div>
   </div>
 <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
-
   <script>
     let map;
     let globalData = [];
@@ -314,8 +317,8 @@
       const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
-      // 產生進階標記
-      routeStops.forEach((stop) => {
+      // 產生進階標記並建立時刻表
+      routeStops.forEach((stop, index) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
         pathCoordinates.push(position);
         bounds.extend(position);
@@ -350,28 +353,36 @@
           fallbackMarker.addListener('click', () => triggerStreetView(position));
         }
 
-        // 生成右側面板
+        // 🎯【修改核心】：動態判斷目前是否為該路線的最後一個站別
+        const isLastStop = (index === routeStops.length - 1);
+        let timeInfoHtml = '';
+
+        if (isLastStop) {
+          // 如果是最後一站，文字設定為終點站，並套用專用 CSS 樣式
+          timeInfoHtml = `<div class="stop-end">🏁 終點站</div>`;
+        } else {
+          // 如果不是最後一站，則正常輸出原本的發車時刻
+          timeInfoHtml = `<div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>`;
+        }
+
+        // 生成右側面板站點項目
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
-          <div class="stop-badge">${stop.sequence}</div>
-          <div class="stop-info">
-            <div class="stop-name">${stop.stop_name}</div>
-            <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>
-          </div>
-        `;
-        
-        li.addEventListener('click', () => {
-          map.setCenter(position);
-          map.setZoom(16);
-          triggerStreetView(position);
-        });
+${stop.sequence}
 
-        ul.appendChild(li);
-      });
+${stop.stop_name}
+${timeInfoHtml}
 
-      sidebarContent.innerHTML = '';
-
+`;
+li.addEventListener('click', () => {
+map.setCenter(position);
+map.setZoom(16);
+triggerStreetView(position);
+});
+ul.appendChild(li);
+});
+sidebarContent.innerHTML = '';
 sidebarContent.appendChild(ul);
 // 共用街景函式
 function triggerStreetView(pos) {
@@ -396,31 +407,28 @@ location: pathCoordinates[i],
 stopover: true
 });
 }
-      directionsService.route({
-          origin: origin,
-          destination: destination,
-          waypoints: waypoints,
-          optimizeWaypoints: false, // 嚴格遵守 sequence 排序，防止 Google 自行改動順序
-          travelMode: google.maps.TravelMode.DRIVING // 採用標準汽車行駛模式
-        }, function(response, status) {
+directionsService.route({
+origin: origin,
+destination: destination,
+waypoints: waypoints,
+optimizeWaypoints: false,
+travelMode: google.maps.TravelMode.DRIVING
+}, function(response, status) {
 if (status === google.maps.DirectionsStatus.OK && response && response.routes && response.routes.length > 0) {
-// ✨【全新重大修正點】：直接提取 Google 處理好、最精準的整條路線線段陣列 overview_path
-// 這種寫法不再去深入分析一層層的 legs 與 steps，完美解決了因新格式變更導致的 forEach 讀取失敗問題
 const roadPath = response.routes[0].overview_path;
 if (roadPath && roadPath.length > 0) {
 routeLine = new google.maps.Polyline({
 path: roadPath,
 geodesic: true,
-strokeColor: '#ef4444', // 真實道路連線為亮紅色
+strokeColor: '#ef4444',
 strokeOpacity: 0.8,
 strokeWeight: 5
 });
 routeLine.setMap(map);
-console.log("【道路規劃成功】已成功依據真實道路繪製校車軌跡！");
 return;
 }
 }
-console.warn('Google 道路路徑計算解析不成功，自動切換為備用直線：', status);
+console.warn('Google 道路路徑計算不可用，自動切換為備用直線：', status);
 drawBackupStraightLine(pathCoordinates);
 });
 } catch (err) {
@@ -430,7 +438,6 @@ drawBackupStraightLine(pathCoordinates);
 map.fitBounds(bounds);
 }
 window.initMap = initMap;
-
 
 </script>
 
