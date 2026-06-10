@@ -209,38 +209,39 @@
       autoFetchJson();
     }
 
-    // 2-A. 自動讀取同資料夾底下的 JSON 檔案（上傳到 GitHub 後會自動運作此段）
+   <script>
+    let map;
+    let globalData = [];
+    let markers = [];
+    let routeLine = null;
+
+    // 1. 初始化 Google 地圖
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 23.456, lng: 120.462 }, 
+        zoom: 12,
+        mapTypeControl: false
+      });
+      autoFetchJson();
+    }
+
+    // 2. 自動讀取 JSON 檔案
     async function autoFetchJson() {
       // ⚠️ 如果已部署到 GitHub，請將 'bus_data.json' 替換為您在 GitHub 上的 Raw 遠端網址
-      const JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
+      const JSON_URL = ''https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       try {
         const response = await fetch(JSON_URL);
-        if (!response.ok) throw new Error('CORS 阻擋或檔案不存在');
+        if (!response.ok) throw new Error('檔案讀取失敗或不存在');
         const data = await response.json();
         processRouteData(data);
       } catch (error) {
-        console.warn('自動讀取本地 JSON 被瀏覽器核心阻擋，請手動使用【選擇檔案】按鈕載入。', error);
+        console.error('讀取 JSON 失敗，請確認檔案路徑或伺服器環境：', error);
+        const select = document.getElementById('routeSelect');
+        select.innerHTML = '<option value="">-- 無法載入路線資料 --</option>';
       }
     }
 
-    // 2-B. 離線容錯機制：手動選擇檔案載入（完全無視瀏覽器的本機限制）
-    function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const data = JSON.parse(e.target.result);
-          processRouteData(data);
-          alert('校車資料載入成功！請點選上方下拉選單切換路線。');
-        } catch (err) {
-          alert('讀取失敗，請確認選擇的檔案是否為正確的 JSON 格式。');
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    // 2-C. 解析 JSON 並把路線塞進選單
+    // 3. 解析 JSON 並把路線塞進選單
     function processRouteData(data) {
       globalData = data;
       const uniqueRoutes = [];
@@ -254,8 +255,12 @@
       });
 
       const select = document.getElementById('routeSelect');
+      if (uniqueRoutes.length === 0) {
+        select.innerHTML = '<option value="">-- 無有效路線資料 --</option>';
+        return;
+      }
+
       select.innerHTML = '<option value="">-- 請選擇路線 --</option>';
-      
       uniqueRoutes.forEach(route => {
         const opt = document.createElement('option');
         opt.value = route.id;
@@ -264,7 +269,7 @@
       });
     }
 
-    // 3. 切換路線：渲染地圖與右側清單
+    // 4. 切換路線：渲染地圖與右側清單
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
@@ -283,7 +288,7 @@
         return;
       }
 
-      // 精準過濾並排序（相容您的大小寫 "TRUE" 與字串型態的 sequence）
+      // 過濾並排序站點
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
         .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
@@ -318,14 +323,14 @@
         });
         markers.push(marker);
 
-        // 懸停顯示小視窗
+        // 懸停顯示時間小視窗
         const infoWindow = new google.maps.InfoWindow({
           content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
         });
         marker.addListener('mouseover', () => infoWindow.open(map, marker));
         marker.addListener('mouseout', () => infoWindow.close());
 
-        // 觸發街景函數
+        // 點擊觸發街景
         const triggerStreetView = () => {
           const panoEl = document.getElementById('pano');
           panoEl.style.display = 'block';
@@ -362,29 +367,30 @@
       sidebarContent.innerHTML = '';
       sidebarContent.appendChild(ul);
 
-      // 4. 呼叫 Google Directions API 依道路路徑連線
+      // 5. 呼叫 Google Directions API 依真實道路導航連線
       const directionsService = new google.maps.DirectionsService();
       
-      // ✨ 精準修正：提取陣列的第一站與最後一站作為導航端點
       const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
-const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
-const waypoints = [];
-for (let i = 1; i < routeStops.length - 1; i++) {
-waypoints.push({
-location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
-stopover: true
-});
-}
-directionsService.route({
-origin: origin,
-destination: destination,
-waypoints: waypoints,
-optimizeWaypoints: false,
-travelMode: google.maps.TravelMode.DRIVING
-}, function(response, status) {
-if (status === google.maps.DirectionsStatus.OK) {
-const legs = response.routes.legs;
-const roadPath = [];
+      const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
+      
+      const waypoints = [];
+      for (let i = 1; i < routeStops.length - 1; i++) {
+        waypoints.push({
+          location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
+          stopover: true
+        });
+      }
+
+      directionsService.route({
+        origin: origin,
+        destination: destination,
+        waypoints: waypoints,
+        optimizeWaypoints: false,
+        travelMode: google.maps.TravelMode.DRIVING
+      }, function(response, status) {
+        if (status === google.maps.DirectionsStatus.OK) {
+          const legs = response.routes.legs;
+          const roadPath = [];
 legs.forEach(leg => {
 leg.steps.forEach(step => {
 step.path.forEach(point => roadPath.push(point));
@@ -399,13 +405,13 @@ strokeWeight: 5
 });
 routeLine.setMap(map);
 } else {
-console.warn('道路路徑規劃不可用（原因: ' + status + '），自動切換為直線連線。');
+console.warn('道路路徑規劃失敗（原因: ' + status + '），自動切換為直線連線。');
 drawBackupStraightLine(routeStops);
 }
 });
 map.fitBounds(bounds);
 }
-// 備用直線連線方案
+// 直線備用方案
 function drawBackupStraightLine(routeStops) {
 const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));
 routeLine = new google.maps.Polyline({
@@ -417,6 +423,9 @@ strokeWeight: 4
 });
 routeLine.setMap(map);
 }
+
+
+          
 <script src="main.js"></script>
   </script>
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
