@@ -352,19 +352,17 @@
           markers.push(fallbackMarker);
           fallbackMarker.addListener('click', () => triggerStreetView(position));
         }
-
-        // 🎯【修改核心】：動態判斷目前是否為該路線的最後一個站別
+   // 🎯【修改核心】：動態將最後一個站別文字改為「抵達時間」並帶入欄位值
         const isLastStop = (index === routeStops.length - 1);
         let timeInfoHtml = '';
 
         if (isLastStop) {
-          // 如果是最後一站，文字設定為終點站，並套用專用 CSS 樣式
-          timeInfoHtml = `<div class="stop-end">🏁 終點站</div>`;
+          // 如果是最後一站，帶入該站點的 arrival_time
+          timeInfoHtml = `<div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>`;
         } else {
-          // 如果不是最後一站，則正常輸出原本的發車時刻
+          // 其餘非最後一站，維持原發車時間文字
           timeInfoHtml = `<div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>`;
         }
-
         // 生成右側面板站點項目
         const li = document.createElement('li');
         li.className = 'stop-item';
