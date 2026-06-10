@@ -197,7 +197,7 @@
     
     <div id="pano"></div>
   </div>
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"></script>
   <script>
     let map;
     let globalData = [];
@@ -281,7 +281,7 @@
       markers.forEach(m => m.map = null);
       markers = [];
       document.getElementById('pano').style.display = 'none';
-      document.getElementById('sidebarContent').innerHTML = '<div class="empty-sidebar-hint">💡 目前為全校點位檢視模式。<br>請由上方選單切換特定路線來查看發車时刻表。</div>';
+      document.getElementById('sidebarContent').innerHTML = '<div class="empty-sidebar-hint">💡 目前為全校點位檢視模式。<br>請由上方選單切換特定路線來查看發車時刻表</div>';
 
       const bounds = new google.maps.LatLngBounds();
       const activeStops = globalData.filter(row => row.is_active === true || row.is_active === "TRUE");
@@ -358,57 +358,63 @@
         markerTag.className = "custom-marker-pin";
         markerTag.style.backgroundColor = currentRouteColor;
         markerTag.innerText = stop.sequence.toString();
-if (AdvancedMarkerElementClass) {
-const advancedMarker = new AdvancedMarkerElementClass({
-map: map,
-position: position,
-content: markerTag,
-title: ${stop.stop_name} (${stop.arrival_time})
-});
-markers.push(advancedMarker);
-const infoWindow = new google.maps.InfoWindow({
-content: <div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>
-});
-advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
-advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
-advancedMarker.addListener('click', () => triggerStreetView(position));
-}
-const isLastStop = (index === routeStops.length - 1);
-let timeInfoHtml = '';
-if (isLastStop) {
-timeInfoHtml = <div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>;
-} else {
-timeInfoHtml = <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>;
-}
-const li = document.createElement('li');
-li.className = 'stop-item';
-li.innerHTML = <div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>;
-li.addEventListener('click', () => {
-map.setCenter(position);
-map.setZoom(16);
-triggerStreetView(position);
-});
-ul.appendChild(li);
-});
-sidebarContent.innerHTML = '';
-sidebarContent.appendChild(ul);
-map.fitBounds(bounds);
-}
-// 共用街景函式
-function triggerStreetView(pos) {
-const panoEl = document.getElementById('pano');
-panoEl.style.display = 'block';
-new google.maps.StreetViewPanorama(panoEl, {
-position: pos,
-pov: { heading: 165, pitch: 0 },
-zoom: 1
-});
-panoEl.scrollIntoView({ behavior: 'smooth' });
-}
-window.initMap = initMap;
 
+        if (AdvancedMarkerElementClass) {
+          const advancedMarker = new AdvancedMarkerElementClass({
+            map: map,
+            position: position,
+            content: markerTag,
+            title: `${stop.stop_name} (${stop.arrival_time})`
+          });
+          markers.push(advancedMarker);
 
-</script>
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+          });
 
- </body>
+          advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
+          advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
+          advancedMarker.addListener('click', () => triggerStreetView(position));
+        }
+
+        const isLastStop = (index === routeStops.length - 1);
+        let timeInfoHtml = '';
+        if (isLastStop) {
+          timeInfoHtml = `<div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>`;
+        } else {
+          timeInfoHtml = `<div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>`;
+        }
+
+        const li = document.createElement('li');
+        li.className = 'stop-item';
+        li.innerHTML = `<div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div><div class="stop-info"><div class="stop-name">${stop.stop_name}</div>${timeInfoHtml}</div>`;
+        li.addEventListener('click', () => {
+          map.setCenter(position);
+          map.setZoom(16);
+          triggerStreetView(position);
+        });
+        ul.appendChild(li);
+      });
+
+      sidebarContent.innerHTML = '';
+      sidebarContent.appendChild(ul);
+      map.fitBounds(bounds);
+    }
+
+    // 共用街景函式
+    function triggerStreetView(pos) {
+      const panoEl = document.getElementById('pano');
+      panoEl.style.display = 'block';
+      new google.maps.StreetViewPanorama(panoEl, {
+        position: pos,
+        pov: { heading: 165, pitch: 0 },
+        zoom: 1
+      });
+      panoEl.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    window.initMap = initMap;
+  </script>
+
+</body>
 </html>
