@@ -179,7 +179,8 @@
     <!-- 下方：Google 街景 -->
     <div id="pano"></div>
   </div>
-
+  <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
  
   <script>
     let map;
@@ -355,6 +356,6 @@
       }, function(response, status) {
         if (status === google.maps.DirectionsStatus.OK) {
           const legs = response.routes.legs;
+          const roadPath = [];legs.forEach(leg => {leg.steps.forEach(step => {step.path.forEach(point => roadPath.push(point));});});routeLine = new google.maps.Polyline({path: roadPath,geodesic: true,strokeColor: '#ef4444',strokeOpacity: 0.8,strokeWeight: 5});routeLine.setMap(map);} else {console.error('道路路徑規劃失敗，原因: ' + status);drawBackupStraightLine(routeStops);}});map.fitBounds(bounds);}// 備用方案function drawBackupStraightLine(routeStops) {const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));routeLine = new google.maps.Polyline({path: pathCoordinates,geodesic: true,strokeColor: '#ffbb00',strokeOpacity: 0.8,strokeWeight: 4});routeLine.setMap(map);}
   
-  <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
+
