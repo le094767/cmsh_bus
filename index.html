@@ -231,7 +231,7 @@
 
     // 2. 自動讀取 JSON 檔案
     async function autoFetchJson() {
-      const JSON_URL = ''https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json'';
+      const JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       try {
         const response = await fetch(JSON_URL);
         if (!response.ok) throw new Error('檔案讀取失敗');
