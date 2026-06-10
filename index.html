@@ -199,21 +199,19 @@
 
     // 2. 自動讀取 JSON 檔案
     async function autoFetchJson() {
-      // ⚠️ 如果已部署到 GitHub，請將 'bus_data.json' 替換為您在 GitHub 上的 Raw 遠端網址
       const JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       try {
         const response = await fetch(JSON_URL);
-        if (!response.ok) throw new Error('檔案讀取失敗或不存在');
+        if (!response.ok) throw new Error('檔案讀取失敗');
         const data = await response.json();
         processRouteData(data);
       } catch (error) {
-        console.error('讀取 JSON 失敗，請確認檔案路徑或伺服器環境：', error);
-        const select = document.getElementById('routeSelect');
-        select.innerHTML = '<option value="">-- 無法載入路線資料 --</option>';
+        console.error('讀取 JSON 失敗：', error);
+        document.getElementById('routeSelect').innerHTML = '<option value="">-- 無法載入路線資料 --</option>';
       }
     }
 
-    // 3. 解析 JSON 並把路線塞進選單
+    // 3. 解析 JSON 並填入選單
     function processRouteData(data) {
       globalData = data;
       const uniqueRoutes = [];
@@ -241,12 +239,27 @@
       });
     }
 
-      // 4. 切換路線：渲染地圖與右側清單 (精簡優化終極版)
+    // 4. 直線連線備用方案 (移至上方確保任何時候都能被呼叫)
+    function drawBackupStraightLine(coords) {
+      if (routeLine) routeLine.setMap(null); // 安全清除舊線段
+      
+      routeLine = new google.maps.Polyline({
+        path: coords,
+        geodesic: true,
+        strokeColor: '#2563eb', // 改為顯眼的科技深藍色直線方案
+        strokeOpacity: 0.8,
+        strokeWeight: 5
+      });
+      routeLine.setMap(map);
+      console.log("【備用機制成功】已強制在站點間繪製連線。");
+    }
+
+    // 5. 切換路線的核心主要邏輯
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
       
-      // 清空舊的標記與線段
+      // 清除所有舊元素
       markers.forEach(m => m.setMap(null));
       markers = [];
       if (routeLine) {
@@ -260,7 +273,7 @@
         return;
       }
 
-      // 過濾並排序站點
+      // 過濾並嚴格依照 sequence 數字排序
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
         .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
@@ -273,16 +286,15 @@
       const ul = document.createElement('ul');
       ul.className = 'stop-list';
 
-      // 🎯 核心改造：這是一個乾淨、純粹的經緯度物件陣列
       const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
+      // 提取定位點、產生 Marker 標記
       routeStops.forEach((stop) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-        pathCoordinates.push(position); // 將乾淨的經緯度存入陣列
+        pathCoordinates.push(position);
         bounds.extend(position);
 
-        // A. 地圖上的 Marker
         const marker = new google.maps.Marker({
           position: position,
           map: map,
@@ -296,14 +308,12 @@
         });
         markers.push(marker);
 
-        // 懸停顯示時間小視窗
         const infoWindow = new google.maps.InfoWindow({
           content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
         });
         marker.addListener('mouseover', () => infoWindow.open(map, marker));
         marker.addListener('mouseout', () => infoWindow.close());
 
-        // 點擊觸發街景
         const triggerStreetView = () => {
           const panoEl = document.getElementById('pano');
           panoEl.style.display = 'block';
@@ -317,7 +327,7 @@
 
         marker.addListener('click', triggerStreetView);
 
-        // B. 右側時刻表項目
+        // 生成右側面板 DOM
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
@@ -340,11 +350,11 @@
       sidebarContent.innerHTML = '';
       sidebarContent.appendChild(ul);
 
-      // 5. 呼叫 Google Directions API 依真實道路導航連線
+      // 🏎️ 道路規劃演算法區塊
       try {
         const directionsService = new google.maps.DirectionsService();
         
-        // 🚀 終極解決方案：直接從我們剛才建好的 pathCoordinates 陣列提取起點、終點與中途點
+        // 使用剛才在迴圈中儲存好的乾淨陣列，完美杜絕結構比對錯誤
         const origin = pathCoordinates[0]; 
         const destination = pathCoordinates[pathCoordinates.length - 1]; 
         
@@ -362,49 +372,39 @@
           waypoints: waypoints,
           optimizeWaypoints: false,
           travelMode: google.maps.TravelMode.DRIVING
-        }, function(response, status) {
-          if (status === google.maps.DirectionsStatus.OK) {
-            const legs = response.routes.legs;
-            const roadPath = [];
-            legs.forEach(leg => {
-              leg.steps.forEach(step => {
-                step.path.forEach(point => roadPath.push(point));
-              });
-            });
 
-            routeLine = new google.maps.Polyline({
-              path: roadPath,
-              geodesic: true,
-              strokeColor: '#ef4444',
-              strokeOpacity: 0.8,
-              strokeWeight: 5
-            });
-            routeLine.setMap(map);
-          } else {
-            console.warn('道路導航 API 規劃失敗，狀態碼: ' + status + '。改由直線繪製。');
-            // 如果 Directions API 有錯誤（常見如 Directions API 忘記在後台點擊啟用），立刻改畫直線
-            drawBackupStraightLine(pathCoordinates);
-          }
-        });
-      } catch (err) {
-        console.error('導航引擎內部發生錯誤，改由直線繪製：', err);
-        drawBackupStraightLine(pathCoordinates);
-      }
-
-      map.fitBounds(bounds);
-    }
-
-    // 備用直線連線方案 (參數已改為吃乾淨的經緯度陣列)
-    function drawBackupStraightLine(coords) {
-      routeLine = new google.maps.Polyline({
-        path: coords,
-        geodesic: true,
-        strokeColor: '#ffbb00', // 備用線條顯示為橘黃色
-        strokeOpacity: 0.8,
-        strokeWeight: 4
-      });
-      routeLine.setMap(map);
-    }
+}, function(response, status) {
+if (status === google.maps.DirectionsStatus.OK) {
+const legs = response.routes.legs;
+const roadPath = [];
+legs.forEach(leg => {
+leg.steps.forEach(step => {
+step.path.forEach(point => roadPath.push(point));
+});
+});
+// 成功：繪製遵循道路的紅色軌跡線
+routeLine = new google.maps.Polyline({
+path: roadPath,
+geodesic: true,
+strokeColor: '#ef4444',
+strokeOpacity: 0.8,
+strokeWeight: 5
+});
+routeLine.setMap(map);
+} else {
+console.warn('Google 導航引擎拒絕連線 (狀態碼: ' + status + ')，立刻啟用強置直線連線。');
+// 觸發強置防禦機制
+drawBackupStraightLine(pathCoordinates);
+}
+});
+} catch (err) {
+console.error('導航核心邏輯攔截錯誤，啟動直線對接機制：', err);
+drawBackupStraightLine(pathCoordinates);
+}
+map.fitBounds(bounds);
+}
+// 徹底將初始化掛載到全域視窗中
+window.initMap = initMap;
 
 </script>
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
