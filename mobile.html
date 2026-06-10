@@ -262,8 +262,8 @@
       <div id="pano"></div>
     </div>
   </div>
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
-  <script>
+
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"></script>
   <script>
     let map;
     let globalData = [];
@@ -350,7 +350,7 @@
       markers.forEach(m => m.map = null);
       markers = [];
       document.getElementById('pano').style.display = 'none';
-      document.getElementById('sidebarContent').innerHTML = '<div class="empty-sidebar-hint">💡 目前為全校點位檢視模式。<br>請由上方選單切換特定路線來查看發車时刻表。</div>';
+      document.getElementById('sidebarContent').innerHTML = '<div class="empty-sidebar-hint">💡 目前為全校點位檢視模式。<br>請由上方選單切換特定路線來查看發車時刻表。</div>';
 
       if (homeMarker) homeMarker.map = map;
 
@@ -380,281 +380,147 @@
           markers.push(advancedMarker);
 
           const infoWindow = new google.maps.InfoWindow({
-content: <div style="padding:5px;font-size:14px;"><strong>[${stop.route_name}] ${stop.stop_name}</strong><br>時間：${stop.arrival_time}</div>
-});
-advancedMarker.addListener('click', () => {
-infoWindow.open(map, advancedMarker);
-triggerStreetView(position, false); // 點擊地圖時，街景在最下方載入，不強制奪取焦點
-});
-}
-});
-if (homeMarker) bounds.extend(homeMarker.position);
-map.fitBounds(bounds);
-}
-// 5. 單一路線單獨檢視與時刻表渲染
-function loadSelectedRoute() {
-const selectedRouteId = document.getElementById('routeSelect').value;
-const sidebarContent = document.getElementById('sidebarContent');
-if (!selectedRouteId) {
-renderAllStopsToMap();
-return;
-}
-markers.forEach(m => m.map = null);
-markers = [];
-document.getElementById('pano').style.display = 'none';
-if (homeMarker) homeMarker.map = map;
-const routeStops = globalData
-.filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
-.sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
-if (routeStops.length === 0) {
-sidebarContent.innerHTML = '該路線無有效資料';
-return;
-}
-const ul = document.createElement('ul');
-ul.className = 'stop-list';
-const bounds = new google.maps.LatLngBounds();
-const currentRouteColor = routeColorMap[selectedRouteId] || '#1e3a8a';
-routeStops.forEach((stop, index) => {
-const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-bounds.extend(position);
-const markerTag = document.createElement("div");
-markerTag.className = "custom-marker-pin";
-markerTag.style.backgroundColor = currentRouteColor;
-markerTag.innerText = stop.sequence.toString();
-if (AdvancedMarkerElementClass) {
-const advancedMarker = new AdvancedMarkerElementClass({
-map: map,
-position: position,
-content: markerTag,
-title: ${stop.stop_name} (${stop.arrival_time})
-});
-markers.push(advancedMarker);
-const infoWindow = new google.maps.InfoWindow({
-content: <div style="padding:5px;font-size:14px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>
-});
-advancedMarker.addListener('click', () => {
-infoWindow.open(map, advancedMarker);
-triggerStreetView(position, false);
-});
-}
-const isLastStop = (index === routeStops.length - 1);
-let timeInfoHtml = '';
-if (isLastStop) {
-timeInfoHtml = <div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>;
-} else {
-timeInfoHtml = <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>;
-}
-const li = document.createElement('li');
-li.className = 'stop-item';
-li.innerHTML = <div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>;
-// 💡 手機核心互動：家長點選下方列表時，地圖飄移過去，並自動將網頁焦點滑動回頂部地圖，方便一邊看時間一邊看地圖變化
-li.addEventListener('click', () => {
-map.setCenter(position);
-map.setZoom(16);
-triggerStreetView(position, true); // 傳入 true 指令，要求滾動回地圖
-});
-ul.appendChild(li);
-});
-sidebarContent.innerHTML = '';
-sidebarContent.appendChild(ul);
-if (homeMarker) bounds.extend(homeMarker.position);
-map.fitBounds(bounds);
-}
-// 6. 地址搜尋功能
-function searchAddress() {
-const address = document.getElementById('addressInput').value.trim();
-if (!address) {
-alert('請先輸入地址再進行搜尋！');
-return;
-}
-const geocoder = new google.maps.Geocoder();
-geocoder.geocode({ address: address }, function(results, status) {
-if (status === 'OK' && results) {
-const homePosition = results.geometry.location;
-if (homeMarker) homeMarker.map = null;
-const homeTag = document.createElement("div");
-homeTag.className = "home-marker-pin";
-homeTag.innerText = "⭐";
-if (AdvancedMarkerElementClass) {
-homeMarker = new AdvancedMarkerElementClass({
-map: map,
-position: homePosition,
-content: homeTag,
-title: 您的住家位置：${address}
-});
-const homeInfoWindow = new google.maps.InfoWindow({
-content: <div style="padding:5px;font-weight:bold;color:#1e3a8a;">🏠 您的住家位置</div>
-});
-homeInfoWindow.open(map, homeMarker);
-}
-map.setCenter(homePosition);
-map.setZoom(15);
-// 💡 手機搜尋優化：地址搜尋成功後，網頁平滑滾動回頂部置頂的地圖，讓家長立刻看到打點成果
-document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
-} else {
-alert('找不到該地址，請確認地址輸入是否正確（建議加上縣市名稱，如：嘉義縣民雄鄉...）。');
-}
-});
-}
-// 💡 手機智慧型滾動對接函式
-function triggerStreetView(pos, shouldScrollToMap) {
-const panoEl = document.getElementById('pano');
-panoEl.style.display = 'block';
-new google.maps.StreetViewPanorama(panoEl, {
-position: pos,
-pov: { heading: 165, pitch: 0 },
-zoom: 1,
-addressControl: false, // 隱藏手機上冗長的路名標籤，挪出更多實景空間
-fullscreenControl: false
-});
-if (shouldScrollToMap) {
-// 如果是點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
-document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
-} else {
-// 如果是點擊地圖標記：畫面平滑向下滾動，展示最底部的街景影像
-panoEl.scrollIntoView({ behavior: 'smooth' });
-}
-}
-window.initMap = initMap;
-content: <div style="padding:5px;font-size:14px;"><strong>[${stop.route_name}] ${stop.stop_name}</strong><br>時間：${stop.arrival_time}</div>
-});
-advancedMarker.addListener('click', () => {
-infoWindow.open(map, advancedMarker);
-triggerStreetView(position, false); // 點擊地圖時，街景在最下方載入，不強制奪取焦點
-});
-}
-});
-if (homeMarker) bounds.extend(homeMarker.position);
-map.fitBounds(bounds);
-}
-// 5. 單一路線單獨檢視與時刻表渲染
-function loadSelectedRoute() {
-const selectedRouteId = document.getElementById('routeSelect').value;
-const sidebarContent = document.getElementById('sidebarContent');
-if (!selectedRouteId) {
-renderAllStopsToMap();
-return;
-}
-markers.forEach(m => m.map = null);
-markers = [];
-document.getElementById('pano').style.display = 'none';
-if (homeMarker) homeMarker.map = map;
-const routeStops = globalData
-.filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
-.sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
-if (routeStops.length === 0) {
-sidebarContent.innerHTML = '該路線無有效資料';
-return;
-}
-const ul = document.createElement('ul');
-ul.className = 'stop-list';
-const bounds = new google.maps.LatLngBounds();
-const currentRouteColor = routeColorMap[selectedRouteId] || '#1e3a8a';
-routeStops.forEach((stop, index) => {
-const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-bounds.extend(position);
-const markerTag = document.createElement("div");
-markerTag.className = "custom-marker-pin";
-markerTag.style.backgroundColor = currentRouteColor;
-markerTag.innerText = stop.sequence.toString();
-if (AdvancedMarkerElementClass) {
-const advancedMarker = new AdvancedMarkerElementClass({
-map: map,
-position: position,
-content: markerTag,
-title: ${stop.stop_name} (${stop.arrival_time})
-});
-markers.push(advancedMarker);
-const infoWindow = new google.maps.InfoWindow({
-content: <div style="padding:5px;font-size:14px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>
-});
-advancedMarker.addListener('click', () => {
-infoWindow.open(map, advancedMarker);
-triggerStreetView(position, false);
-});
-}
-const isLastStop = (index === routeStops.length - 1);
-let timeInfoHtml = '';
-if (isLastStop) {
-timeInfoHtml = <div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>;
-} else {
-timeInfoHtml = <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>;
-}
-const li = document.createElement('li');
-li.className = 'stop-item';
-li.innerHTML = <div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>;
-// 💡 手機核心互動：家長點選下方列表時，地圖飄移過去，並自動將網頁焦點滑動回頂部地圖，方便一邊看時間一邊看地圖變化
-li.addEventListener('click', () => {
-map.setCenter(position);
-map.setZoom(16);
-triggerStreetView(position, true); // 傳入 true 指令，要求滾動回地圖
-});
-ul.appendChild(li);
-});
-sidebarContent.innerHTML = '';
-sidebarContent.appendChild(ul);
-if (homeMarker) bounds.extend(homeMarker.position);
-map.fitBounds(bounds);
-}
-// 6. 地址搜尋功能
-function searchAddress() {
-const address = document.getElementById('addressInput').value.trim();
-if (!address) {
-alert('請先輸入地址再進行搜尋！');
-return;
-}
-const geocoder = new google.maps.Geocoder();
-geocoder.geocode({ address: address }, function(results, status) {
-if (status === 'OK' && results) {
-const homePosition = results.geometry.location;
-if (homeMarker) homeMarker.map = null;
-const homeTag = document.createElement("div");
-homeTag.className = "home-marker-pin";
-homeTag.innerText = "⭐";
-if (AdvancedMarkerElementClass) {
-homeMarker = new AdvancedMarkerElementClass({
-map: map,
-position: homePosition,
-content: homeTag,
-title: 您的住家位置：${address}
-});
-const homeInfoWindow = new google.maps.InfoWindow({
-content: <div style="padding:5px;font-weight:bold;color:#1e3a8a;">🏠 您的住家位置</div>
-});
-homeInfoWindow.open(map, homeMarker);
-}
-map.setCenter(homePosition);
-map.setZoom(15);
-// 💡 手機搜尋優化：地址搜尋成功後，網頁平滑滾動回頂部置頂的地圖，讓家長立刻看到打點成果
-document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
-} else {
-alert('找不到該地址，請確認地址輸入是否正確（建議加上縣市名稱，如：嘉義縣民雄鄉...）。');
-}
-});
-}
-// 💡 手機智慧型滾動對接函式
-function triggerStreetView(pos, shouldScrollToMap) {
-const panoEl = document.getElementById('pano');
-panoEl.style.display = 'block';
-new google.maps.StreetViewPanorama(panoEl, {
-position: pos,
-pov: { heading: 165, pitch: 0 },
-zoom: 1,
-addressControl: false, // 隱藏手機上冗長的路名標籤，挪出更多實景空間
-fullscreenControl: false
-});
-if (shouldScrollToMap) {
-// 如果是點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
-document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
-} else {
-// 如果是點擊地圖標記：畫面平滑向下滾動，展示最底部的街景影像
-panoEl.scrollIntoView({ behavior: 'smooth' });
-}
-}
-window.initMap = initMap;
-</script>
+            content: `<div style="padding:5px;font-size:14px;"><strong>[${stop.route_name}] ${stop.stop_name}</strong><br>時間：${stop.arrival_time}</div>`
+          });
+          advancedMarker.addListener('click', () => {
+            infoWindow.open(map, advancedMarker);
+            triggerStreetView(position, false); // 點擊地圖時，街景在最下方載入，不強制奪取焦點
+          });
+        }
+      });
+      if (homeMarker) bounds.extend(homeMarker.position);
+      map.fitBounds(bounds);
+    }
+
+    // 5. 單一路線單獨檢視與時刻表渲染
+    function loadSelectedRoute() {
+      const selectedRouteId = document.getElementById('routeSelect').value;
+      const sidebarContent = document.getElementById('sidebarContent');
+      if (!selectedRouteId) {
+        renderAllStopsToMap();
+        return;
+      }
+      markers.forEach(m => m.map = null);
+      markers = [];
+      document.getElementById('pano').style.display = 'none';
+      if (homeMarker) homeMarker.map = map;
+      const routeStops = globalData
+        .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
+        .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
+      if (routeStops.length === 0) {
+        sidebarContent.innerHTML = '該路線無有效資料';
+        return;
+      }
+      const ul = document.createElement('ul');
+      ul.className = 'stop-list';
+      const bounds = new google.maps.LatLngBounds();
+      const currentRouteColor = routeColorMap[selectedRouteId] || '#1e3a8a';
+      routeStops.forEach((stop, index) => {
+        const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
+        bounds.extend(position);
+        const markerTag = document.createElement("div");
+        markerTag.className = "custom-marker-pin";
+        markerTag.style.backgroundColor = currentRouteColor;
+        markerTag.innerText = stop.sequence.toString();
+        if (AdvancedMarkerElementClass) {
+          const advancedMarker = new AdvancedMarkerElementClass({
+            map: map,
+            position: position,
+            content: markerTag,
+            title: `${stop.stop_name} (${stop.arrival_time})`
+          });
+          markers.push(advancedMarker);
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px;font-size:14px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+          });
+          advancedMarker.addListener('click', () => {
+            infoWindow.open(map, advancedMarker);
+            triggerStreetView(position, false);
+          });
+        }
+        const isLastStop = (index === routeStops.length - 1);
+        let timeInfoHtml = '';
+        if (isLastStop) {
+          timeInfoHtml = `<div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>`;
+        } else {
+          timeInfoHtml = `<div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>`;
+        }
+        const li = document.createElement('li');
+        li.className = 'stop-item';
+        li.innerHTML = `<div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>`;
+        // 💡 手機核心互動：家長點選下方列表時，地圖飄移過去，並自動將網頁焦點滑動回頂部地圖，方便一邊看時間一邊看地圖變化
+        li.addEventListener('click', () => {
+          map.setCenter(position);
+          map.setZoom(16);
+          triggerStreetView(position, true); // 傳入 true 指令，要求滾動回地圖
+        });
+        ul.appendChild(li);
+      });
+      sidebarContent.innerHTML = '';
+      sidebarContent.appendChild(ul);
+      if (homeMarker) bounds.extend(homeMarker.position);
+      map.fitBounds(bounds);
+    }
+
+    // 6. 地址搜尋功能
+    function searchAddress() {
+      const address = document.getElementById('addressInput').value.trim();
+      if (!address) {
+        alert('請先輸入地址再進行搜尋！');
+        return;
+      }
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: address }, function(results, status) {
+        if (status === 'OK' && results) {
+          const homePosition = results.geometry.location;
+          if (homeMarker) homeMarker.map = null;
+          const homeTag = document.createElement("div");
+          homeTag.className = "home-marker-pin";
+          homeTag.innerText = "⭐";
+          if (AdvancedMarkerElementClass) {
+            homeMarker = new AdvancedMarkerElementClass({
+              map: map,
+              position: homePosition,
+              content: homeTag,
+              title: `您的住家位置：${address}`
+            });
+            const homeInfoWindow = new google.maps.InfoWindow({
+              content: `<div style="padding:5px;font-weight:bold;color:#1e3a8a;">🏠 您的住家位置</div>`
+            });
+            homeInfoWindow.open(map, homeMarker);
+          }
+          map.setCenter(homePosition);
+          map.setZoom(15);
+          // 💡 手機搜尋優化：地址搜尋成功後，網頁平滑滾動回頂部置頂的地圖，讓家長立刻看到打點成果
+          document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
+        } else {
+          alert('找不到該地址，請確認地址輸入是否正確（建議加上縣市名稱，如：嘉義縣民雄鄉...）。');
+        }
+      });
+    }
+
+    // 💡 手機智慧型滾動對接函式
+    function triggerStreetView(pos, shouldScrollToMap) {
+      const panoEl = document.getElementById('pano');
+      panoEl.style.display = 'block';
+      new google.maps.StreetViewPanorama(panoEl, {
+        position: pos,
+        pov: { heading: 165, pitch: 0 },
+        zoom: 1,
+        addressControl: false, // 隱藏手機上冗長的路名標籤，挪出更多實景空間
+        fullscreenControl: false
+      });
+      if (shouldScrollToMap) {
+        // 如果是點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
+        document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        // 如果是點擊地圖標記：畫面平滑向下滾動，展示最底部的街景影像
+        panoEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    window.initMap = initMap;
+  </script>
 
  </body>
 </html>
-
-
