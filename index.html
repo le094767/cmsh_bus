@@ -181,7 +181,8 @@
   </div>
 
   <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
-  <script src="https://googleapis.com" async defer></script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
+
   
   <script>
     let map;
@@ -202,7 +203,7 @@
     // 2. 讀取 JSON 資料
     async function fetchRoutes() {
       // ⚠️ 請替換為您在 GitHub 儲存庫中 bus_data.json 的 Raw 連結
-      const GITHUB_JSON_URL = 'https://githubusercontent.com';
+      const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       
       try {
         const response = await fetch(GITHUB_JSON_URL);
