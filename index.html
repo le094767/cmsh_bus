@@ -51,17 +51,17 @@
       margin-bottom: 20px;
     }
     .map-container {
-      flex: 7; /* 地圖佔 7 成寬度 */
+      flex: 7;
       min-width: 0;
     }
     .sidebar {
-      flex: 3; /* 側邊欄佔 3 成寬度 */
+      flex: 3;
       background-color: #f3f4f6;
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 15px;
       max-height: 450px;
-      overflow-y: auto; /* 站點太多時自動出現滾動條 */
+      overflow-y: auto;
     }
     
     #map {
@@ -108,7 +108,7 @@
       transition: background-color 0.2s;
     }
     .stop-item:hover {
-      background-color: #e5e7eb; /* 滑鼠懸停特效 */
+      background-color: #e5e7eb;
     }
     .stop-badge {
       background-color: #1e3a8a;
@@ -160,14 +160,11 @@
       <p class="hint">💡 提示：點擊地圖標記或右側站點名稱，下方可查看 Google 實景街景影像。</p>
     </div>
     
-    <!-- 左右側並排區塊 -->
     <div class="main-content">
-      <!-- 左側：地圖 -->
       <div class="map-container">
         <div id="map"></div>
       </div>
       
-      <!-- 右側：站點時刻清單 -->
       <div class="sidebar">
         <div class="sidebar-title">⏱️ 站點與發車時刻</div>
         <div id="sidebarContent">
@@ -176,21 +173,19 @@
       </div>
     </div>
     
-    <!-- 下方：Google 街景 -->
     <div id="pano"></div>
   </div>
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> 
-  <!-- 主程式邏輯指令碼：優先讓瀏覽器載入並定義好 initMap 函式 -->
+
   <script>
     let map;
     let globalData = [];
     let markers = [];
     let routeLine = null;
 
-    // 1. 初始化 Google 地圖 (確保此函式在 API 讀取前先被瀏覽器認得)
+    // 1. 初始化 Google 地圖
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: 23.555, lng: 120.428 },
+        center: { lat: 23.456, lng: 120.462 }, // 預設定位在您的第一個站點附近
         zoom: 12,
         mapTypeControl: false
       });
@@ -199,9 +194,7 @@
 
     // 2. 讀取 JSON 資料
     async function fetchRoutes() {
-      // ⚠️ 如果是在本機直接測試，請將此行網址改為 'bus_data.json' 即可
-      // ⚠️ 如果已部署到 GitHub，請替換為您在 GitHub 儲存庫中的 Raw 連結
-      const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
+      const GITHUB_JSON_URL = 'bus_data.json';
       
       try {
         const response = await fetch(GITHUB_JSON_URL);
@@ -228,7 +221,7 @@
         
       } catch (error) {
         console.error('讀取校車資料失敗:', error);
-        alert('無法載入校車路線資料，請檢查 JSON 檔案路徑。');
+        alert('無法載入校車路線資料，請檢查 JSON 檔案。');
       }
     }
 
@@ -237,7 +230,6 @@
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
       
-      // 清除舊元件
       markers.forEach(m => m.setMap(null));
       markers = [];
       if (routeLine) {
@@ -251,29 +243,28 @@
         return;
       }
 
+      // 過濾並精準排序站點（解決 sequence 字串問題）
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
         .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
 
       if (routeStops.length === 0) {
         sidebarContent.innerHTML = '<div class="empty-sidebar-hint" style="color:#ef4444;">該路線無有效資料</div>';
-        alert('該路線目前無有效的站點資料。');
         return;
       }
 
-      // 建立右側 HTML 清單容器
       const ul = document.createElement('ul');
       ul.className = 'stop-list';
 
       const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
-      routeStops.forEach((stop, index) => {
+      routeStops.forEach((stop) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
         pathCoordinates.push(position);
         bounds.extend(position);
 
-        // A. 地圖打點
+        // A. 地圖標記
         const marker = new google.maps.Marker({
           position: position,
           map: map,
@@ -294,7 +285,6 @@
         marker.addListener('mouseover', () => infoWindow.open(map, marker));
         marker.addListener('mouseout', () => infoWindow.close());
 
-        // 定義開啟街景的共用函數
         const triggerStreetView = () => {
           const panoEl = document.getElementById('pano');
           panoEl.style.display = 'block';
@@ -306,10 +296,9 @@
           panoEl.scrollIntoView({ behavior: 'smooth' });
         };
 
-        // 地圖圖標點擊觸發街景
         marker.addListener('click', triggerStreetView);
 
-        // B. 動態生成右側清單項目 (Row)
+        // B. 生成右側清單項目
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
@@ -320,22 +309,22 @@
           </div>
         `;
         
-        // 點擊右側清單項目時：地圖中心移過去，並同時觸發下方街景
         li.addEventListener('click', () => {
           map.setCenter(position);
-          map.setZoom(16); // 稍微放大聚焦
+          map.setZoom(16);
           triggerStreetView();
         });
 
         ul.appendChild(li);
       });
 
-      // 將生成好的清單塞入右側側邊欄
       sidebarContent.innerHTML = '';
       sidebarContent.appendChild(ul);
 
-      // 4. 呼叫 Google Directions API 進行真實道路導航連線
+      // 4. 呼叫 Google Directions API 進行真實道路連線（修正過後的寫法）
       const directionsService = new google.maps.DirectionsService();
+      
+      // ✅ 修正點：精準抓取陣列中的第一個站點與最後一個站點物件
       const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
       const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
       
@@ -360,8 +349,9 @@
           legs.forEach(leg => {
             leg.steps.forEach(step => {
               step.path.forEach(point => roadPath.push(point));
-              });
+            });
           });
+
           routeLine = new google.maps.Polyline({
             path: roadPath,
             geodesic: true,
@@ -371,12 +361,14 @@
           });
           routeLine.setMap(map);
         } else {
-          console.error('道路路徑規劃失敗，原因: ' + status);drawBackupStraightLine(routeStops);
+          console.error('道路路徑規劃失敗，啟用直線備用方案:', status);
+          drawBackupStraightLine(routeStops);
         }
       });
       map.fitBounds(bounds);
     }
-    // 備用方案
+
+// 直線備用方案
     function drawBackupStraightLine(routeStops) {
       const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng:
         parseFloat(stop.lng) }));
@@ -388,4 +380,4 @@
         strokeWeight: 4
       });
       routeLine.setMap(map);
-    }          
+    }
