@@ -447,7 +447,7 @@
         }
         const li = document.createElement('li');
         li.className = 'stop-item';
-        li.innerHTML = `<div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml}</div>`;
+        li.innerHTML = `<div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>`;
         // 💡 手機核心互動：家長點選下方列表時，地圖飄移過去，並自動將網頁焦點滑動回頂部地圖，方便一邊看時間一邊看地圖變化
         li.addEventListener('click', () => {
           map.setCenter(position);
