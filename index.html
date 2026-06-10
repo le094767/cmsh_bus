@@ -241,7 +241,7 @@
       });
     }
 
-// 4. 切換路線：渲染地圖與右側清單
+    // 4. 切換路線：渲染地圖與右側清單
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
@@ -276,7 +276,7 @@
       const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
-      routeStops.forEach((stop, index) => {
+      routeStops.forEach((stop) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
         pathCoordinates.push(position);
         bounds.extend(position);
@@ -340,53 +340,58 @@
       sidebarContent.appendChild(ul);
 
       // 5. 呼叫 Google Directions API 依真實道路導航連線
-      const directionsService = new google.maps.DirectionsService();
-      
-      // ✅ 修正點：使用精準的陣列索引 [0] 抓取第一站與最後一站的物件
-      const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
-      const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
-      
-      const waypoints = [];
-      for (let i = 1; i < routeStops.length - 1; i++) {
-        waypoints.push({
-          location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
-          stopover: true
-        });
-      }
-
-      directionsService.route({
-        origin: origin,
-        destination: destination,
-        waypoints: waypoints,
-        optimizeWaypoints: false,
-        travelMode: google.maps.TravelMode.DRIVING
-      }, function(response, status) {
-        if (status === google.maps.DirectionsStatus.OK) {
-          const legs = response.routes.legs;
-          const roadPath = [];
-          legs.forEach(leg => {
-            leg.steps.forEach(step => {
-              step.path.forEach(point => roadPath.push(point));
-            });
+      try {
+        const directionsService = new google.maps.DirectionsService();
+        
+        // 🎯 核心修復：確保起點帶有中括號 [0]
+        const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
+        const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
+        
+        const waypoints = [];
+        for (let i = 1; i < routeStops.length - 1; i++) {
+          waypoints.push({
+            location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
+            stopover: true
           });
-
-          routeLine = new google.maps.Polyline({
-            path: roadPath,
-            geodesic: true,
-            strokeColor: '#ef4444',
-            strokeOpacity: 0.8,
-            strokeWeight: 5
-          });
-          routeLine.setMap(map);
-        } else {
-          console.warn('道路路徑規劃失敗（原因: ' + status + '），已自動啟動【直線備用方案】。');
-          // ✨ 核心修正：如果導航 API 報錯，立刻呼叫直線繪製，不讓線條消失
-          drawBackupStraightLine(routeStops);
         }
-      });
+
+        directionsService.route({
+          origin: origin,
+          destination: destination,
+          waypoints: waypoints,
+          optimizeWaypoints: false,
+          travelMode: google.maps.TravelMode.DRIVING
+        }, function(response, status) {
+          if (status === google.maps.DirectionsStatus.OK) {
+            const legs = response.routes.legs;
+            const roadPath = [];
+            legs.forEach(leg => {
+              leg.steps.forEach(step => {
+                step.path.forEach(point => roadPath.push(point));
+              });
+            });
+
+            routeLine = new google.maps.Polyline({
+              path: roadPath,
+              geodesic: true,
+              strokeColor: '#ef4444',
+              strokeOpacity: 0.8,
+              strokeWeight: 5
+            });
+            routeLine.setMap(map);
+          } else {
+            console.warn('道路導航 API 回傳錯誤（原因: ' + status + '），啟動直線備用方案。');
+            drawBackupStraightLine(routeStops);
+          }
+        });
+      } catch (err) {
+        console.error('導航程式執行崩潰，強制切換至直線方案：', err);
+        drawBackupStraightLine(routeStops);
+      }
 
       map.fitBounds(bounds);
     }
+
 
 </script>
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
