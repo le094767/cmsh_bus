@@ -184,13 +184,18 @@
 
     // 1. 初始化 Google 地圖
     function initMap() {
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: 23.456, lng: 120.462 }, // 預設定位在您的第一個站點附近
-        zoom: 12,
-        mapTypeControl: false
-      });
-      fetchRoutes();
+      try {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: { lat: 23.456, lng: 120.462 },
+          zoom: 12,
+          mapTypeControl: false
+        });
+        fetchRoutes();
+      } catch (e) {
+        console.error("Google 地圖初始化失敗，請檢查 API Key 是否有效:", e);
+      }
     }
+
 
     // 2. 讀取 JSON 資料
     async function fetchRoutes() {
@@ -225,7 +230,7 @@
       }
     }
 
-    // 3. 切換路線：渲染地圖與右側清單
+   // 3. 切換路線
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
@@ -243,7 +248,6 @@
         return;
       }
 
-      // 過濾並精準排序站點（解決 sequence 字串問題）
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
         .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
@@ -265,38 +269,40 @@
         bounds.extend(position);
 
         // A. 地圖標記
-        const marker = new google.maps.Marker({
-          position: position,
-          map: map,
-          label: {
-            text: stop.sequence.toString(),
-            color: "#ffffff",
-            fontWeight: "bold"
-          },
-          title: `${stop.stop_name} (${stop.arrival_time})`,
-          zIndex: 99
-        });
-        markers.push(marker);
-
-        const infoWindow = new google.maps.InfoWindow({
-          content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
-        });
-
-        marker.addListener('mouseover', () => infoWindow.open(map, marker));
-        marker.addListener('mouseout', () => infoWindow.close());
-
-        const triggerStreetView = () => {
-          const panoEl = document.getElementById('pano');
-          panoEl.style.display = 'block';
-          new google.maps.StreetViewPanorama(panoEl, {
+        if (typeof google !== 'undefined' && google.maps) {
+          const marker = new google.maps.Marker({
             position: position,
-            pov: { heading: 165, pitch: 0 },
-            zoom: 1
+            map: map,
+            label: {
+              text: stop.sequence.toString(),
+              color: "#ffffff",
+              fontWeight: "bold"
+            },
+            title: `${stop.stop_name} (${stop.arrival_time})`,
+            zIndex: 99
           });
-          panoEl.scrollIntoView({ behavior: 'smooth' });
-        };
+          markers.push(marker);
 
-        marker.addListener('click', triggerStreetView);
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+          });
+
+          marker.addListener('mouseover', () => infoWindow.open(map, marker));
+          marker.addListener('mouseout', () => infoWindow.close());
+
+          const triggerStreetView = () => {
+            const panoEl = document.getElementById('pano');
+            panoEl.style.display = 'block';
+            new google.maps.StreetViewPanorama(panoEl, {
+              position: position,
+              pov: { heading: 165, pitch: 0 },
+              zoom: 1
+            });
+            panoEl.scrollIntoView({ behavior: 'smooth' });
+          };
+
+          marker.addListener('click', triggerStreetView);
+        }
 
         // B. 生成右側清單項目
         const li = document.createElement('li');
@@ -310,9 +316,18 @@
         `;
         
         li.addEventListener('click', () => {
-          map.setCenter(position);
-          map.setZoom(16);
-          triggerStreetView();
+          if (typeof google !== 'undefined' && google.maps) {
+            map.setCenter(position);
+            map.setZoom(16);
+            const panoEl = document.getElementById('pano');
+            panoEl.style.display = 'block';
+            new google.maps.StreetViewPanorama(panoEl, {
+              position: position,
+              pov: { heading: 165, pitch: 0 },
+              zoom: 1
+            });
+            panoEl.scrollIntoView({ behavior: 'smooth' });
+          }
         });
 
         ul.appendChild(li);
@@ -321,63 +336,54 @@
       sidebarContent.innerHTML = '';
       sidebarContent.appendChild(ul);
 
-      // 4. 呼叫 Google Directions API 進行真實道路連線（修正過後的寫法）
-      const directionsService = new google.maps.DirectionsService();
-      
-      // ✅ 修正點：精準抓取陣列中的第一個站點與最後一個站點物件
-      const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
-      const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
-      
-      const waypoints = [];
-      for (let i = 1; i < routeStops.length - 1; i++) {
-        waypoints.push({
-          location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
-          stopover: true
-        });
-      }
-
-      directionsService.route({
-        origin: origin,
-        destination: destination,
-        waypoints: waypoints,
-        optimizeWaypoints: false,
-        travelMode: google.maps.TravelMode.DRIVING
-      }, function(response, status) {
-        if (status === google.maps.DirectionsStatus.OK) {
-          const legs = response.routes.legs;
-          const roadPath = [];
-          legs.forEach(leg => {
-            leg.steps.forEach(step => {
-              step.path.forEach(point => roadPath.push(point));
-            });
+      // 4. 呼叫 Google Directions API 進行真實道路連線
+      if (typeof google !== 'undefined' && google.maps && google.maps.DirectionsService) {
+        const directionsService = new google.maps.DirectionsService();
+        
+        // ✅ 已修正：精準抓取陣列物件中的經緯度
+        const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
+        const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
+        
+        const waypoints = [];
+        for (let i = 1; i < routeStops.length - 1; i++) {
+          waypoints.push({
+            location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
+            stopover: true
           });
-
-          routeLine = new google.maps.Polyline({
-            path: roadPath,
-            geodesic: true,
-            strokeColor: '#ef4444',
-            strokeOpacity: 0.8,
-            strokeWeight: 5
-          });
-          routeLine.setMap(map);
-        } else {
-          console.error('道路路徑規劃失敗，啟用直線備用方案:', status);
-          drawBackupStraightLine(routeStops);
         }
-      });
-      map.fitBounds(bounds);
-    }
 
-// 直線備用方案
-    function drawBackupStraightLine(routeStops) {
-      const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng:
-        parseFloat(stop.lng) }));
-      routeLine = new google.maps.Polyline({
-        path: pathCoordinates,
-        geodesic: true,
-        strokeColor: '#ffbb00',
-        strokeOpacity: 0.8,
-        strokeWeight: 4
-      });
-      routeLine.setMap(map);
-    }
+        directionsService.route({
+          origin: origin,
+          destination: destination,
+          waypoints: waypoints,
+          optimizeWaypoints: false,
+          travelMode: google.maps.TravelMode.DRIVING
+        }, function(response, status) {
+          if (status === google.maps.DirectionsStatus.OK) 
+          {const legs = response.routes.legs;
+           const roadPath = [];
+           legs.forEach(leg => {
+             leg.steps.forEach(step => {
+               step.path.forEach(point => roadPath.push(point));
+             });
+           });
+           
+           routeLine = new google.maps.Polyline({
+             path: roadPath,
+             geodesic: true,
+             strokeColor: '#ef4444',
+             strokeOpacity: 0.8,
+             strokeWeight: 5});
+           routeLine.setMap(map);
+          } else {
+            console.error('道路路徑規劃失敗，啟用直線備用方案:', status);
+            drawBackupStraightLine(routeStops);
+          }
+        });
+        map.fitBounds(bounds);
+      } else {
+        // 如果沒有 Google Map 環境，依然繪製文字介面與備用直線
+        drawBackupStraightLine(routeStops);}}
+    
+    // 直線備用方案
+    function drawBackupStraightLine(routeStops) {if (typeof google === 'undefined' || !google.maps) return;const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));routeLine = new google.maps.Polyline({path: pathCoordinates,geodesic: true,strokeColor: '#ffbb00',strokeOpacity: 0.8,strokeWeight: 4});routeLine.setMap(map);}
