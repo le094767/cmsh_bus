@@ -87,11 +87,6 @@
       color: #6b7280;
       margin-top: 5px;
     }
-    .local-file-box {
-      margin-top: 10px;
-      font-size: 13px;
-      color: #b91c1c;
-    }
 
     /* 側邊欄時間軸樣式 */
     .sidebar-title {
@@ -165,15 +160,9 @@
     <div class="select-group">
       <label for="routeSelect">請選擇校車路線：</label>
       <select id="routeSelect" onchange="loadSelectedRoute()">
-        <option value="">-- 請先載入資料 --</option>
+        <option value="">-- 讀取路線中 --</option>
       </select>
       <p class="hint">💡 提示：點擊地圖標記或右側站點名稱，下方可查看 Google 實景街景影像。</p>
-      
-      <!-- 容錯備用機制：解決點兩下打開 HTML 被瀏覽器限制讀取 JSON 的問題 -->
-      <div class="local-file-box">
-        🛠️ <b>本機離線測試功能</b>：如果下拉選單沒跑出來，請點此選取您的 <b>bus_data.json</b>：
-        <input type="file" id="jsonFileInput" accept=".json" onchange="handleFileSelect(event)">
-      </div>
     </div>
     
     <div class="main-content">
@@ -192,24 +181,7 @@
     <div id="pano"></div>
   </div>
 
-
   <script>
-    let map;
-    let globalData = [];
-    let markers = [];
-    let routeLine = null;
-
-    // 1. 初始化 Google 地圖
-    function initMap() {
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: 23.456, lng: 120.462 }, // 預設定位在您嘉義第一個站點附近
-        zoom: 12,
-        mapTypeControl: false
-      });
-      autoFetchJson();
-    }
-
-   <script>
     let map;
     let globalData = [];
     let markers = [];
@@ -228,7 +200,7 @@
     // 2. 自動讀取 JSON 檔案
     async function autoFetchJson() {
       // ⚠️ 如果已部署到 GitHub，請將 'bus_data.json' 替換為您在 GitHub 上的 Raw 遠端網址
-      const JSON_URL = ''https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
+      const JSON_URL = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap';
       try {
         const response = await fetch(JSON_URL);
         if (!response.ok) throw new Error('檔案讀取失敗或不存在');
