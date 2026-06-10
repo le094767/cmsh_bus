@@ -241,7 +241,7 @@
       });
     }
 
-    // 4. 切換路線：渲染地圖與右側清單
+      // 4. 切換路線：渲染地圖與右側清單 (精簡優化終極版)
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
@@ -273,12 +273,13 @@
       const ul = document.createElement('ul');
       ul.className = 'stop-list';
 
+      // 🎯 核心改造：這是一個乾淨、純粹的經緯度物件陣列
       const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
       routeStops.forEach((stop) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-        pathCoordinates.push(position);
+        pathCoordinates.push(position); // 將乾淨的經緯度存入陣列
         bounds.extend(position);
 
         // A. 地圖上的 Marker
@@ -343,14 +344,14 @@
       try {
         const directionsService = new google.maps.DirectionsService();
         
-        // 🎯 核心修復：確保起點帶有中括號 [0]
-        const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
-        const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
+        // 🚀 終極解決方案：直接從我們剛才建好的 pathCoordinates 陣列提取起點、終點與中途點
+        const origin = pathCoordinates[0]; 
+        const destination = pathCoordinates[pathCoordinates.length - 1]; 
         
         const waypoints = [];
-        for (let i = 1; i < routeStops.length - 1; i++) {
+        for (let i = 1; i < pathCoordinates.length - 1; i++) {
           waypoints.push({
-            location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
+            location: pathCoordinates[i],
             stopover: true
           });
         }
@@ -380,18 +381,30 @@
             });
             routeLine.setMap(map);
           } else {
-            console.warn('道路導航 API 回傳錯誤（原因: ' + status + '），啟動直線備用方案。');
-            drawBackupStraightLine(routeStops);
+            console.warn('道路導航 API 規劃失敗，狀態碼: ' + status + '。改由直線繪製。');
+            // 如果 Directions API 有錯誤（常見如 Directions API 忘記在後台點擊啟用），立刻改畫直線
+            drawBackupStraightLine(pathCoordinates);
           }
         });
       } catch (err) {
-        console.error('導航程式執行崩潰，強制切換至直線方案：', err);
-        drawBackupStraightLine(routeStops);
+        console.error('導航引擎內部發生錯誤，改由直線繪製：', err);
+        drawBackupStraightLine(pathCoordinates);
       }
 
       map.fitBounds(bounds);
     }
 
+    // 備用直線連線方案 (參數已改為吃乾淨的經緯度陣列)
+    function drawBackupStraightLine(coords) {
+      routeLine = new google.maps.Polyline({
+        path: coords,
+        geodesic: true,
+        strokeColor: '#ffbb00', // 備用線條顯示為橘黃色
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
+      routeLine.setMap(map);
+    }
 
 </script>
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
