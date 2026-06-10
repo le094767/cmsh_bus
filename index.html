@@ -179,16 +179,15 @@
     <!-- 下方：Google 街景 -->
     <div id="pano"></div>
   </div>
-  <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
- 
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> 
+  <!-- 主程式邏輯指令碼：優先讓瀏覽器載入並定義好 initMap 函式 -->
   <script>
     let map;
     let globalData = [];
     let markers = [];
     let routeLine = null;
 
-    // 1. 初始化 Google 地圖
+    // 1. 初始化 Google 地圖 (確保此函式在 API 讀取前先被瀏覽器認得)
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: 23.555, lng: 120.428 },
@@ -200,7 +199,8 @@
 
     // 2. 讀取 JSON 資料
     async function fetchRoutes() {
-      // ⚠️ 請替換為您在 GitHub 儲存庫中 bus_data.json 的 Raw 連結
+      // ⚠️ 如果是在本機直接測試，請將此行網址改為 'bus_data.json' 即可
+      // ⚠️ 如果已部署到 GitHub，請替換為您在 GitHub 儲存庫中的 Raw 連結
       const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       
       try {
@@ -228,7 +228,7 @@
         
       } catch (error) {
         console.error('讀取校車資料失敗:', error);
-        alert('無法載入校車路線資料，請檢查 GitHub 網址設定或 API 狀態。');
+        alert('無法載入校車路線資料，請檢查 JSON 檔案路徑。');
       }
     }
 
@@ -356,6 +356,36 @@
       }, function(response, status) {
         if (status === google.maps.DirectionsStatus.OK) {
           const legs = response.routes.legs;
-          const roadPath = [];legs.forEach(leg => {leg.steps.forEach(step => {step.path.forEach(point => roadPath.push(point));});});routeLine = new google.maps.Polyline({path: roadPath,geodesic: true,strokeColor: '#ef4444',strokeOpacity: 0.8,strokeWeight: 5});routeLine.setMap(map);} else {console.error('道路路徑規劃失敗，原因: ' + status);drawBackupStraightLine(routeStops);}});map.fitBounds(bounds);}// 備用方案function drawBackupStraightLine(routeStops) {const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));routeLine = new google.maps.Polyline({path: pathCoordinates,geodesic: true,strokeColor: '#ffbb00',strokeOpacity: 0.8,strokeWeight: 4});routeLine.setMap(map);}
-  
-
+          const roadPath = [];
+          legs.forEach(leg => {
+            leg.steps.forEach(step => {
+              step.path.forEach(point => roadPath.push(point));
+              });
+          });
+          routeLine = new google.maps.Polyline({
+            path: roadPath,
+            geodesic: true,
+            strokeColor: '#ef4444',
+            strokeOpacity: 0.8,
+            strokeWeight: 5
+          });
+          routeLine.setMap(map);
+        } else {
+          console.error('道路路徑規劃失敗，原因: ' + status);drawBackupStraightLine(routeStops);
+        }
+      });
+      map.fitBounds(bounds);
+    }
+    // 備用方案
+    function drawBackupStraightLine(routeStops) {
+      const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng:
+        parseFloat(stop.lng) }));
+      routeLine = new google.maps.Polyline({
+        path: pathCoordinates,
+        geodesic: true,
+        strokeColor: '#ffbb00',
+        strokeOpacity: 0.8,
+        strokeWeight: 4
+      });
+      routeLine.setMap(map);
+    }          
