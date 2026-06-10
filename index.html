@@ -402,13 +402,20 @@ timeInfoHtml = <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}
 // 生成右側面板站點項目 (圓圈圈底色同步路線顏色)
 const li = document.createElement('li');
 li.className = 'stop-item';
-li.innerHTML = <div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>;
+li.innerHTML = `
+  <div class="stop-badge">${stop.sequence}</div>
+  <div class="stop-info">
+    <div class="stop-name">${stop.stop_name}</div>
+    ${timeInfoHtml}
+  </div>
+`;
 li.addEventListener('click', () => {
-map.setCenter(position);
-map.setZoom(16);
-triggerStreetView(position);
+  map.setCenter(position);
+  map.setZoom(16);
+  triggerStreetView(position);
 });
 ul.appendChild(li);
+
 });
 sidebarContent.innerHTML = '';
 sidebarContent.appendChild(ul);
