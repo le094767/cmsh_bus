@@ -180,10 +180,7 @@
     <div id="pano"></div>
   </div>
 
-  <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
-
-  
+ 
   <script>
     let map;
     let globalData = [];
@@ -358,3 +355,6 @@
       }, function(response, status) {
         if (status === google.maps.DirectionsStatus.OK) {
           const legs = response.routes.legs;
+  
+  <!-- 載入 Google Maps JavaScript API (請將 YOUR_GOOGLE_MAPS_API_KEY 替換為您的有效憑證) -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
