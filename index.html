@@ -153,7 +153,7 @@
       font-size: 14px;
     }
 
-    /* 進階標記基礎樣式 (顏色由 JS 動態指派控制) */
+    /* 進階標記基礎樣式 */
     .custom-marker-pin {
       color: white;
       font-weight: bold;
@@ -203,18 +203,11 @@
     let globalData = [];
     let markers = [];
     let AdvancedMarkerElementClass = null;
-    let routeColorMap = {}; // 全域變數：用來記錄每條路線分配到的顏色
+    let routeColorMap = {};
 
-    // 🎨 質感大馬卡龍色系池：用於區分不同校車路線
     const COLOR_PALETTE = [
-      '#e11d48', // 櫻桃紅
-      '#2563eb', // 皇家藍
-      '#16a34a', // 翡翠綠
-      '#ea580c', // 活力橘
-      '#9333ea', // 迷幻紫
-      '#0d9488', // 湖水綠
-      '#db2777', // 玫瑰粉
-      '#4b5563'  // 質感灰
+      '#e11d48', '#2563eb', '#16a34a', '#ea580c', 
+      '#9333ea', '#0d9488', '#db2777', '#4b5563'
     ];
 
     // 1. 初始化 Google 地圖
@@ -238,7 +231,7 @@
 
     // 2. 自動讀取 JSON 檔案
     async function autoFetchJson() {
-      const JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
+      const JSON_URL = ''https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json'';
       try {
         const response = await fetch(JSON_URL);
         if (!response.ok) throw new Error('檔案讀取失敗');
@@ -250,20 +243,17 @@
       }
     }
 
-    // 3. 解析 JSON、動態分配色彩並產生「初始全站點畫面」
+    // 3. 解析 JSON、動態分配色彩並產生初始全站點畫面
     function processRouteData(data) {
       globalData = data;
       const uniqueRoutes = [];
       const seen = new Set();
       
-      // 提取唯一路線，並動態指派顏色對照表
       let colorIndex = 0;
       globalData.forEach(row => {
         if (row.route_id && !seen.has(row.route_id)) {
           seen.add(row.route_id);
           uniqueRoutes.push({ id: row.route_id, name: row.route_name });
-          
-          // 為每一條不重複的路線代碼綁定一個固定顏色
           routeColorMap[row.route_id] = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
           colorIndex++;
         }
@@ -283,21 +273,17 @@
         select.appendChild(opt);
       });
 
-      // ✨【關鍵核心】：一開網頁，直接進入「全站點顯示模式」
       renderAllStopsToMap();
     }
 
-    // ✨ 初始頁面呈現全校所有路線的校車點（色彩區隔模式）
+    // 4. 初始頁面呈現全校所有路線的校車點
     function renderAllStopsToMap() {
-      // 清空舊標記
       markers.forEach(m => m.map = null);
       markers = [];
       document.getElementById('pano').style.display = 'none';
       document.getElementById('sidebarContent').innerHTML = '<div class="empty-sidebar-hint">💡 目前為全校點位檢視模式。<br>請由上方選單切換特定路線來查看發車时刻表。</div>';
 
       const bounds = new google.maps.LatLngBounds();
-      
-      // 只挑選啟用的站點進行全地圖打點
       const activeStops = globalData.filter(row => row.is_active === true || row.is_active === "TRUE");
 
       if (activeStops.length === 0) return;
@@ -306,12 +292,11 @@
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
         bounds.extend(position);
 
-        // 撈取該站點所屬路線的分配色彩
         const routeColor = routeColorMap[stop.route_id] || '#ef4444';
 
         const markerTag = document.createElement("div");
         markerTag.className = "custom-marker-pin";
-        markerTag.style.backgroundColor = routeColor; // 動態渲染標記顏色
+        markerTag.style.backgroundColor = routeColor;
         markerTag.innerText = stop.sequence.toString();
 
         if (AdvancedMarkerElementClass) {
@@ -319,7 +304,7 @@
             map: map,
             position: position,
             content: markerTag,
-            title: `【${stop.route_name}】第${stop.sequence}站: ${stop.stop_name}`
+            title: `${stop.stop_name} (${stop.arrival_time})`
           });
           markers.push(advancedMarker);
 
@@ -333,7 +318,6 @@
         }
       });
 
-      // 自動將視窗邊界調整包容全校所有點位
       map.fitBounds(bounds);
     }
 
@@ -342,13 +326,11 @@
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
       
-      // 💡 如果選單選回預設的「查看全校所有站點」，則呼叫初始函式並結束
       if (!selectedRouteId) {
         renderAllStopsToMap();
         return;
       }
 
-      // 清除舊標記
       markers.forEach(m => m.map = null);
       markers = [];
       document.getElementById('pano').style.display = 'none';
@@ -366,16 +348,16 @@
       ul.className = 'stop-list';
 
       const bounds = new google.maps.LatLngBounds();
+      const currentRouteColor = routeColorMap[selectedRouteId] || '#1e3a8a';
 
-const currentRouteColor = routeColorMap[selectedRouteId] || '#1e3a8a'; // 獲取當前選中路線的顏色
-// 產生單一路線的標記與時間軸
-routeStops.forEach((stop, index) => {
-const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-bounds.extend(position);
-const markerTag = document.createElement("div");
-markerTag.className = "custom-marker-pin";
-markerTag.style.backgroundColor = currentRouteColor; // 時刻表與地圖顏色完美連動
-markerTag.innerText = stop.sequence.toString();
+      routeStops.forEach((stop, index) => {
+        const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
+        bounds.extend(position);
+
+        const markerTag = document.createElement("div");
+        markerTag.className = "custom-marker-pin";
+        markerTag.style.backgroundColor = currentRouteColor;
+        markerTag.innerText = stop.sequence.toString();
 if (AdvancedMarkerElementClass) {
 const advancedMarker = new AdvancedMarkerElementClass({
 map: map,
@@ -391,7 +373,6 @@ advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, 
 advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
 advancedMarker.addListener('click', () => triggerStreetView(position));
 }
-// 終點站時間文字優化
 const isLastStop = (index === routeStops.length - 1);
 let timeInfoHtml = '';
 if (isLastStop) {
@@ -399,23 +380,15 @@ timeInfoHtml = <div class="stop-end">🏁 抵達時間：${stop.arrival_time}</d
 } else {
 timeInfoHtml = <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>;
 }
-// 生成右側面板站點項目 (圓圈圈底色同步路線顏色)
 const li = document.createElement('li');
 li.className = 'stop-item';
-li.innerHTML = `
-  <div class="stop-badge">${stop.sequence}</div>
-  <div class="stop-info">
-    <div class="stop-name">${stop.stop_name}</div>
-    ${timeInfoHtml}
-  </div>
-`;
+li.innerHTML = <div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>;
 li.addEventListener('click', () => {
-  map.setCenter(position);
-  map.setZoom(16);
-  triggerStreetView(position);
+map.setCenter(position);
+map.setZoom(16);
+triggerStreetView(position);
 });
 ul.appendChild(li);
-
 });
 sidebarContent.innerHTML = '';
 sidebarContent.appendChild(ul);
