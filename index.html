@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>校車路線與時刻查詢系統 (純站點標記版)</title>
+  <title>校車路線與時刻查詢系統 (全站點色彩對照版)</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -113,7 +113,6 @@
       background-color: #e5e7eb;
     }
     .stop-badge {
-      background-color: #1e3a8a;
       color: white;
       border-radius: 50%;
       width: 24px;
@@ -154,9 +153,8 @@
       font-size: 14px;
     }
 
-    /* 進階標記樣式 */
+    /* 進階標記基礎樣式 (顏色由 JS 動態指派控制) */
     .custom-marker-pin {
-      background-color: #e11d48;
       color: white;
       font-weight: bold;
       border-radius: 50%;
@@ -167,21 +165,21 @@
       justify-content: center;
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
       border: 2px solid #fff;
-      font-size: 13px;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <h2>🚌 校車路線時刻查詢 (純站點標記版)</h2>
+    <h2>🚌 校車路線時刻查詢 (全站點色彩對照版)</h2>
     
     <div class="select-group">
       <label for="routeSelect">請選擇校車路線：</label>
       <select id="routeSelect" onchange="loadSelectedRoute()">
         <option value="">-- 讀取路線中 --</option>
       </select>
-      <p class="hint">💡 提示：點擊地圖標記或右側站點名稱，下方可查看 Google 實景街景影像。</p>
+      <p class="hint">💡 提示：初始畫面呈現全校所有站點。點擊下拉選單可切換特定路線並顯示時刻表面板。</p>
     </div>
     
     <div class="main-content">
@@ -192,7 +190,7 @@
       <div class="sidebar">
         <div class="sidebar-title">⏱️ 站點與發車時刻</div>
         <div id="sidebarContent">
-          <div class="empty-sidebar-hint">請先選擇上方校車路線</div>
+          <div class="empty-sidebar-hint">請由上方下拉選單切換單一路線</div>
         </div>
       </div>
     </div>
@@ -205,6 +203,19 @@
     let globalData = [];
     let markers = [];
     let AdvancedMarkerElementClass = null;
+    let routeColorMap = {}; // 全域變數：用來記錄每條路線分配到的顏色
+
+    // 🎨 質感大馬卡龍色系池：用於區分不同校車路線
+    const COLOR_PALETTE = [
+      '#e11d48', // 櫻桃紅
+      '#2563eb', // 皇家藍
+      '#16a34a', // 翡翠綠
+      '#ea580c', // 活力橘
+      '#9333ea', // 迷幻紫
+      '#0d9488', // 湖水綠
+      '#db2777', // 玫瑰粉
+      '#4b5563'  // 質感灰
+    ];
 
     // 1. 初始化 Google 地圖
     async function initMap() {
@@ -239,16 +250,22 @@
       }
     }
 
-    // 3. 解析 JSON 並填入選單
+    // 3. 解析 JSON、動態分配色彩並產生「初始全站點畫面」
     function processRouteData(data) {
       globalData = data;
       const uniqueRoutes = [];
       const seen = new Set();
       
+      // 提取唯一路線，並動態指派顏色對照表
+      let colorIndex = 0;
       globalData.forEach(row => {
         if (row.route_id && !seen.has(row.route_id)) {
           seen.add(row.route_id);
           uniqueRoutes.push({ id: row.route_id, name: row.route_name });
+          
+          // 為每一條不重複的路線代碼綁定一個固定顏色
+          routeColorMap[row.route_id] = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
+          colorIndex++;
         }
       });
 
@@ -258,29 +275,83 @@
         return;
       }
 
-      select.innerHTML = '<option value="">-- 請選擇路線 --</option>';
+      select.innerHTML = '<option value="">-- 查看全校所有站點 --</option>';
       uniqueRoutes.forEach(route => {
         const opt = document.createElement('option');
         opt.value = route.id;
         opt.innerText = route.name;
         select.appendChild(opt);
       });
+
+      // ✨【關鍵核心】：一開網頁，直接進入「全站點顯示模式」
+      renderAllStopsToMap();
     }
 
-    // 4. 切換路線的核心主要邏輯
+    // ✨ 初始頁面呈現全校所有路線的校車點（色彩區隔模式）
+    function renderAllStopsToMap() {
+      // 清空舊標記
+      markers.forEach(m => m.map = null);
+      markers = [];
+      document.getElementById('pano').style.display = 'none';
+      document.getElementById('sidebarContent').innerHTML = '<div class="empty-sidebar-hint">💡 目前為全校點位檢視模式。<br>請由上方選單切換特定路線來查看發車时刻表。</div>';
+
+      const bounds = new google.maps.LatLngBounds();
+      
+      // 只挑選啟用的站點進行全地圖打點
+      const activeStops = globalData.filter(row => row.is_active === true || row.is_active === "TRUE");
+
+      if (activeStops.length === 0) return;
+
+      activeStops.forEach((stop) => {
+        const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
+        bounds.extend(position);
+
+        // 撈取該站點所屬路線的分配色彩
+        const routeColor = routeColorMap[stop.route_id] || '#ef4444';
+
+        const markerTag = document.createElement("div");
+        markerTag.className = "custom-marker-pin";
+        markerTag.style.backgroundColor = routeColor; // 動態渲染標記顏色
+        markerTag.innerText = stop.sequence.toString();
+
+        if (AdvancedMarkerElementClass) {
+          const advancedMarker = new AdvancedMarkerElementClass({
+            map: map,
+            position: position,
+            content: markerTag,
+            title: `【${stop.route_name}】第${stop.sequence}站: ${stop.stop_name}`
+          });
+          markers.push(advancedMarker);
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px;"><strong>[${stop.route_name}] ${stop.stop_name}</strong><br>時間：${stop.arrival_time}</div>`
+          });
+          
+          advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
+          advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
+          advancedMarker.addListener('click', () => triggerStreetView(position));
+        }
+      });
+
+      // 自動將視窗邊界調整包容全校所有點位
+      map.fitBounds(bounds);
+    }
+
+    // 5. 切換選單：特定路線單獨檢視與時刻表渲染
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
       
+      // 💡 如果選單選回預設的「查看全校所有站點」，則呼叫初始函式並結束
+      if (!selectedRouteId) {
+        renderAllStopsToMap();
+        return;
+      }
+
       // 清除舊標記
       markers.forEach(m => m.map = null);
       markers = [];
       document.getElementById('pano').style.display = 'none';
-
-      if (!selectedRouteId) {
-        sidebarContent.innerHTML = '<div class="empty-sidebar-hint">請先選擇上方校車路線</div>';
-        return;
-      }
 
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
@@ -296,78 +367,56 @@
 
       const bounds = new google.maps.LatLngBounds();
 
-      // 產生進階標記並建立時刻表
-      routeStops.forEach((stop, index) => {
-        const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
-        bounds.extend(position);
-
-        const markerTag = document.createElement("div");
-        markerTag.className = "custom-marker-pin";
-        markerTag.innerText = stop.sequence.toString();
-
-        if (AdvancedMarkerElementClass) {
-          const advancedMarker = new AdvancedMarkerElementClass({
-            map: map,
-            position: position,
-            content: markerTag,
-            title: `${stop.stop_name} (${stop.arrival_time})`
-          });
-          markers.push(advancedMarker);
-
-          const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
-          });
-          
-          advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
-          advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
-          advancedMarker.addListener('click', () => triggerStreetView(position));
-        } else {
-          const fallbackMarker = new google.maps.Marker({
-            position: position,
-            map: map,
-            label: stop.sequence.toString()
-          });
-          markers.push(fallbackMarker);
-          fallbackMarker.addListener('click', () => triggerStreetView(position));
-        }
-
-        // 動態將最後一個站別文字改為「抵達時間」並帶入欄位值
-        const isLastStop = (index === routeStops.length - 1);
-        let timeInfoHtml = '';
-
-        if (isLastStop) {
-          timeInfoHtml = `<div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>`;
-        } else {
-          timeInfoHtml = `<div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>`;
-        }
-
-        // 生成右側面板站點項目
-        const li = document.createElement('li');
-        li.className = 'stop-item';
-        li.innerHTML = `
-          <div class="stop-badge">${stop.sequence}</div>
-          <div class="stop-info">
-            <div class="stop-name">${stop.stop_name}</div>
-            ${timeInfoHtml}
-          </div>
-        `;
-        
-        li.addEventListener('click', () => {
-          map.setCenter(position);
-          map.setZoom(16);
-          triggerStreetView(position);
-        });
-
-        ul.appendChild(li);
-      });
-
-      sidebarContent.innerHTML = '';
-      sidebarContent.appendChild(ul);
-
-      // 共用街景函式
-      function triggerStreetView(pos) {
-        const panoEl = document.getElementById('pano');
-
+const currentRouteColor = routeColorMap[selectedRouteId] || '#1e3a8a'; // 獲取當前選中路線的顏色
+// 產生單一路線的標記與時間軸
+routeStops.forEach((stop, index) => {
+const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
+bounds.extend(position);
+const markerTag = document.createElement("div");
+markerTag.className = "custom-marker-pin";
+markerTag.style.backgroundColor = currentRouteColor; // 時刻表與地圖顏色完美連動
+markerTag.innerText = stop.sequence.toString();
+if (AdvancedMarkerElementClass) {
+const advancedMarker = new AdvancedMarkerElementClass({
+map: map,
+position: position,
+content: markerTag,
+title: ${stop.stop_name} (${stop.arrival_time})
+});
+markers.push(advancedMarker);
+const infoWindow = new google.maps.InfoWindow({
+content: <div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>
+});
+advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
+advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
+advancedMarker.addListener('click', () => triggerStreetView(position));
+}
+// 終點站時間文字優化
+const isLastStop = (index === routeStops.length - 1);
+let timeInfoHtml = '';
+if (isLastStop) {
+timeInfoHtml = <div class="stop-end">🏁 抵達時間：${stop.arrival_time}</div>;
+} else {
+timeInfoHtml = <div class="stop-time">⏱️ 發車時間：${stop.arrival_time}</div>;
+}
+// 生成右側面板站點項目 (圓圈圈底色同步路線顏色)
+const li = document.createElement('li');
+li.className = 'stop-item';
+li.innerHTML = <div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>;
+li.addEventListener('click', () => {
+map.setCenter(position);
+map.setZoom(16);
+triggerStreetView(position);
+});
+ul.appendChild(li);
+});
+sidebarContent.innerHTML = '';
+sidebarContent.appendChild(ul);
+map.fitBounds(bounds);
+}
+// 共用街景函式
+function triggerStreetView(pos) {
+const panoEl = document.getElementById('pano');
 panoEl.style.display = 'block';
 new google.maps.StreetViewPanorama(panoEl, {
 position: pos,
@@ -376,10 +425,8 @@ zoom: 1
 });
 panoEl.scrollIntoView({ behavior: 'smooth' });
 }
-// 💡【核心改動】：此處完全刪除了 Polyline (畫線) 的調用，直接進入地圖邊界調整
-map.fitBounds(bounds);
-}
 window.initMap = initMap;
+
 
 </script>
 
