@@ -396,26 +396,13 @@ location: pathCoordinates[i],
 stopover: true
 });
 }
-        // 找到 directionsService.route 的設定區域，並修改為以下參數：
-        directionsService.route({
+      directionsService.route({
           origin: origin,
           destination: destination,
           waypoints: waypoints,
-          optimizeWaypoints: false,
-          travelMode: google.maps.TravelMode.DRIVING, // 確保是大客車/汽車模式
-
-          // ✨【關鍵防禦設定 1】：加入行車偏好設定
-          drivingOptions: {
-            departureTime: new Date(),          // 計算路徑時考慮即時/歷史路況
-            routingPreference: "SUGGESTED_ROUTE" // 讓 Google 優先選擇高鐵、省道、主要幹道，自動避開非柏油或狹窄巷弄
-          },
-
-          // ✨【關鍵防禦設定 2】：全域避開特定道路（可選）
-          avoidHighways: false, // 若校車不走高速公路，可設為 true
-          avoidTolls: false,
-
+          optimizeWaypoints: false, // 嚴格遵守 sequence 排序，防止 Google 自行改動順序
+          travelMode: google.maps.TravelMode.DRIVING // 採用標準汽車行駛模式
         }, function(response, status) {
-
 if (status === google.maps.DirectionsStatus.OK && response && response.routes && response.routes.length > 0) {
 // ✨【全新重大修正點】：直接提取 Google 處理好、最精準的整條路線線段陣列 overview_path
 // 這種寫法不再去深入分析一層層的 legs 與 steps，完美解決了因新格式變更導致的 forEach 讀取失敗問題
