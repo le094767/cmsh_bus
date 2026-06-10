@@ -1,7 +1,7 @@
 [
 {"route_id":"route_001","route_name":"嘉1車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"銘華幼兒園","arrival_time":"06:40","lat":"23.456104719767684","lng":"120.46234747761909"}
 ,
-{"route_id":"route_001","route_name":"嘉1車","direction":"上學","is_active":"TRUE","sequence":"2","stop_name":"軍輝橋(和興牙醫)","arrival_time":"06:45","lat":"23.456626705698213","lng":"120.45876810410577"}
+{"route_id":"route_001","route_name":"嘉1車","direction":"上學","is_active":"TRUE","sequence":"2","stop_name":"軍輝橋(和興牙醫)","arrival_time":"06:45","lat":"23.45660309010858","lng":"120.45878149194229"}
 ,
 {"route_id":"route_001","route_name":"嘉1車","direction":"上學","is_active":"TRUE","sequence":"3","stop_name":"寶雅(第二分局旁)","arrival_time":"06:50","lat":"23.463333","lng":"120.455816"}
 ,
