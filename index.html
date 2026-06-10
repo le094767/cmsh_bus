@@ -196,22 +196,33 @@
     
     <div id="pano"></div>
   </div>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
 
   <script>
     let map;
     let globalData = [];
     let markers = [];
     let routeLine = null;
+    let AdvancedMarkerElementClass = null; // 全域變數：用來暫存載入好的進階標記類別
 
     // 1. 初始化 Google 地圖
-    function initMap() {
-      map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: 23.456, lng: 120.462 }, 
-        zoom: 12,
-        mapTypeControl: false,
-        mapId: "SCHOOL_BUS_MAP_ID" 
-      });
-      autoFetchJson();
+    async function initMap() {
+      try {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: { lat: 23.456, lng: 120.462 }, 
+          zoom: 12,
+          mapTypeControl: false,
+          mapId: "SCHOOL_BUS_MAP_ID" 
+        });
+
+        // ✨ 核心修復：在地圖一載入時，就立刻、提早完成進階標記函式庫的異步下載
+        const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+        AdvancedMarkerElementClass = AdvancedMarkerElement; // 將它存入全域，供後續隨時讀取
+
+        autoFetchJson();
+      } catch (e) {
+        console.error("地圖載入或函式庫提取失敗，請確認 API 金鑰限制是否正確:", e);
+      }
     }
 
     // 2. 自動讀取 JSON 檔案
@@ -271,12 +282,9 @@
     }
 
     // 5. 切換路線的核心主要邏輯
-    async function loadSelectedRoute() {
+    function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
-      
-      // ✨ 升級重點：採用官方標準異步方式，確保 AdvancedMarkerElement 完全載入後才執行後續程式
-      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
       
       // 清除舊標記
       markers.forEach(m => m.map = null);
@@ -317,35 +325,35 @@
         markerTag.className = "custom-marker-pin";
         markerTag.innerText = stop.sequence.toString();
 
-        // ✅ 已修正：此處直接呼叫剛才透過 importLibrary 精準抽取的 AdvancedMarkerElement 物件
-        const advancedMarker = new AdvancedMarkerElement({
-          map: map,
-          position: position,
-          content: markerTag,
-          title: `${stop.stop_name} (${stop.arrival_time})`
-        });
-        markers.push(advancedMarker);
-
-        const infoWindow = new google.maps.InfoWindow({
-          content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
-        });
-        
-        advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
-        advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
-
-        const triggerStreetView = () => {
-          const panoEl = document.getElementById('pano');
-          panoEl.style.display = 'block';
-          new google.maps.StreetViewPanorama(panoEl, {
+        // ✅ 已修正：如果全域變數成功載入，使用 AdvancedMarkerElementClass；若未完成則自動降級相容舊元件，100% 防止未定義錯誤
+        if (AdvancedMarkerElementClass) {
+          const advancedMarker = new AdvancedMarkerElementClass({
+            map: map,
             position: position,
-            pov: { heading: 165, pitch: 0 },
-            zoom: 1
+            content: markerTag,
+            title: `${stop.stop_name} (${stop.arrival_time})`
           });
-          panoEl.scrollIntoView({ behavior: 'smooth' });
-        };
+          markers.push(advancedMarker);
 
-        advancedMarker.addListener('click', triggerStreetView);
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+          });
+          
+          advancedMarker.element.addEventListener('mouseover', () => infoWindow.open(map, advancedMarker));
+          advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
+          advancedMarker.addListener('click', () => triggerStreetView(position));
+        } else {
+          // 降級備用機制：防止極端時序下拋出錯誤
+          const fallbackMarker = new google.maps.Marker({
+            position: position,
+            map: map,
+            label: stop.sequence.toString()
+          });
+          markers.push(fallbackMarker);
+          fallbackMarker.addListener('click', () => triggerStreetView(position));
+        }
 
+        // 生成右側面板
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
@@ -356,20 +364,28 @@
           </div>
         `;
         
-        li.addEventListener('click', () => {
-          map.setCenter(position);
-          map.setZoom(16);
-          triggerStreetView();
-        });
-
-        ul.appendChild(li);
-      });
-
-      sidebarContent.innerHTML = '';
-      sidebarContent.appendChild(ul);
-
-      // 6. 道路規劃演算法 (加入健全防護，防止任何 legs.forEach 報錯)
-      try {
+li.addEventListener('click', () => {
+map.setCenter(position);
+map.setZoom(16);
+triggerStreetView(position);
+});
+ul.appendChild(li);
+});
+sidebarContent.innerHTML = '';
+sidebarContent.appendChild(ul);
+// 共用街景函式
+function triggerStreetView(pos) {
+const panoEl = document.getElementById('pano');
+panoEl.style.display = 'block';
+new google.maps.StreetViewPanorama(panoEl, {
+position: pos,
+pov: { heading: 165, pitch: 0 },
+zoom: 1
+});
+panoEl.scrollIntoView({ behavior: 'smooth' });
+}
+// 6. 道路規劃演算法
+try {
 const directionsService = new google.maps.DirectionsService();
 const origin = pathCoordinates[0];
 const destination = pathCoordinates[pathCoordinates.length - 1];
@@ -388,9 +404,8 @@ optimizeWaypoints: false,
 travelMode: google.maps.TravelMode.DRIVING
 }, function(response, status) {
 if (status === google.maps.DirectionsStatus.OK && response && response.routes && response.routes.length > 0) {
-const legs = response.routes[0].legs;
+const legs = response.routes.legs;
 const roadPath = [];
-// ✅ 加強安全防禦性檢查：100% 杜絕 Cannot read properties of undefined (reading 'forEach')
 if (legs && Array.isArray(legs)) {
 legs.forEach(leg => {
 if (leg.steps && Array.isArray(leg.steps)) {
@@ -411,10 +426,9 @@ strokeOpacity: 0.8,
 strokeWeight: 5
 });
 routeLine.setMap(map);
-return; // 成功畫完道路線段，退出
+return;
 }
 }
-// 如果導航 API 計算出錯或權限受限，強制改為直線方案，絕不留白
 console.warn('Google 道路路徑計算不可用，自動切換為備用直線：', status);
 drawBackupStraightLine(pathCoordinates);
 });
@@ -426,7 +440,7 @@ map.fitBounds(bounds);
 }
 window.initMap = initMap;
 
+
 </script>
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
-</body>
+ </body>
 </html>
