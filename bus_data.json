@@ -21,6 +21,6 @@
 ,
 {"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"6","stop_name":"稅務局(忠孝路)","arrival_time":"07:05","lat":"23.48183695247755","lng":"120.45406924736574"}
 ,
-{"route_id":"route_001","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"7","stop_name":"協同中學(終點站)","arrival_time":"07:20","lat":"23.532251205375676","lng":" 120.43684667499166"}
+{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"7","stop_name":"協同中學(終點站)","arrival_time":"07:20","lat":"23.532251205375676","lng":" 120.43684667499166"}
 
 ]
