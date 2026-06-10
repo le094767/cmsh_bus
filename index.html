@@ -175,7 +175,7 @@
     
     <div id="pano"></div>
   </div>
-
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
   <script>
     let map;
     let globalData = [];
@@ -194,7 +194,7 @@
 
     // 2. 讀取 JSON 資料
     async function fetchRoutes() {
-      const GITHUB_JSON_URL = 'bus_data.json';
+      const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       
       try {
         const response = await fetch(GITHUB_JSON_URL);
