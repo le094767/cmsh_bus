@@ -150,6 +150,22 @@
       padding: 40px 0;
       font-size: 14px;
     }
+
+    /* 💡 最新進階標記專用的 CSS 圓形數字圖標 */
+    .custom-marker-pin {
+      background-color: #e11d48; /* 漂亮的櫻桃紅色標記 */
+      color: white;
+      font-weight: bold;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+      border: 2px solid #fff;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -180,19 +196,22 @@
     
     <div id="pano"></div>
   </div>
- <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
+
   <script>
     let map;
     let globalData = [];
     let markers = [];
     let routeLine = null;
 
-    // 1. 初始化 Google 地圖
+    // 1. 初始化 Google 地圖（已升級最新規範）
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: 23.456, lng: 120.462 }, 
         zoom: 12,
-        mapTypeControl: false
+        mapTypeControl: false,
+        // 💡 升級重點：必須要隨便填入一個字串作為 mapId 才能啟用進階標記元件
+        mapId: "SCHOOL_BUS_MAP_ID" 
       });
       autoFetchJson();
     }
@@ -239,19 +258,19 @@
       });
     }
 
-    // 4. 直線連線備用方案 (移至上方確保任何時候都能被呼叫)
+    // 4. 直線連線備用方案
     function drawBackupStraightLine(coords) {
-      if (routeLine) routeLine.setMap(null); // 安全清除舊線段
+      if (routeLine) routeLine.setMap(null); 
       
       routeLine = new google.maps.Polyline({
         path: coords,
         geodesic: true,
-        strokeColor: '#2563eb', // 改為顯眼的科技深藍色直線方案
+        strokeColor: '#2563eb', 
         strokeOpacity: 0.8,
         strokeWeight: 5
       });
       routeLine.setMap(map);
-      console.log("【備用機制成功】已強制在站點間繪製連線。");
+      console.log("【防護機制】已使用直線備用方案連接站點。");
     }
 
     // 5. 切換路線的核心主要邏輯
@@ -259,9 +278,10 @@
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
       
-      // 清除所有舊元素
-      markers.forEach(m => m.setMap(null));
+      // 清除舊的進階標記
+      markers.forEach(m => m.map = null); // 💡 升級重點：進階標記的清除方式是直接將其屬性 map 設為 null
       markers = [];
+      
       if (routeLine) {
         routeLine.setMap(null);
         routeLine = null;
@@ -273,7 +293,7 @@
         return;
       }
 
-      // 過濾並嚴格依照 sequence 數字排序
+      // 依照順序嚴格排序站點
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
         .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
@@ -289,32 +309,32 @@
       const pathCoordinates = [];
       const bounds = new google.maps.LatLngBounds();
 
-      // 提取定位點、產生 Marker 標記
+      // 產生進階 Marker 標記
       routeStops.forEach((stop) => {
         const position = { lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) };
         pathCoordinates.push(position);
         bounds.extend(position);
 
-        const marker = new google.maps.Marker({
-          position: position,
+        // 💡 升級重點：進階標記允許我們直接用標準 HTML 與 CSS 來自訂超級精美的數字圖標外觀
+        const markerTag = document.createElement("div");
+        markerTag.className = "custom-marker-pin";
+        markerTag.innerText = stop.sequence.toString();
+
+        // 💡 升級重點：全面改用全新的 google.maps.marker.AdvancedMarkerElement 元件
+        const advancedMarker = new google.maps.marker.AdvancedMarkerElement({
           map: map,
-          label: {
-            text: stop.sequence.toString(),
-            color: "#ffffff",
-            fontWeight: "bold"
-          },
-          title: `${stop.stop_name} (${stop.arrival_time})`,
-          zIndex: 99
+          position: position,
+          content: markerTag, // 置入我們用 CSS 畫好的漂亮數字圈圈
+          title: `${stop.stop_name} (${stop.arrival_time})`
         });
-        markers.push(marker);
+        markers.push(advancedMarker);
 
         const infoWindow = new google.maps.InfoWindow({
           content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
         });
-        marker.addListener('mouseover', () => infoWindow.open(map, marker));
-        marker.addListener('mouseout', () => infoWindow.close());
-
-        const triggerStreetView = () => {
+        
+        // 進階標記綁定監聽事件的方法與傳統完全相同
+        advancedMarker.addListener('click', () => {
           const panoEl = document.getElementById('pano');
           panoEl.style.display = 'block';
           new google.maps.StreetViewPanorama(panoEl, {
@@ -323,11 +343,9 @@
             zoom: 1
           });
           panoEl.scrollIntoView({ behavior: 'smooth' });
-        };
+        });
 
-        marker.addListener('click', triggerStreetView);
-
-        // 生成右側面板 DOM
+        // 生成右側面板
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
@@ -341,38 +359,38 @@
         li.addEventListener('click', () => {
           map.setCenter(position);
           map.setZoom(16);
-          triggerStreetView();
-        });
-
-        ul.appendChild(li);
-      });
-
-      sidebarContent.innerHTML = '';
-      sidebarContent.appendChild(ul);
-
-      // 🏎️ 道路規劃演算法區塊
-      try {
-        const directionsService = new google.maps.DirectionsService();
-        
-        // 使用剛才在迴圈中儲存好的乾淨陣列，完美杜絕結構比對錯誤
-        const origin = pathCoordinates[0]; 
-        const destination = pathCoordinates[pathCoordinates.length - 1]; 
-        
-        const waypoints = [];
-        for (let i = 1; i < pathCoordinates.length - 1; i++) {
-          waypoints.push({
-            location: pathCoordinates[i],
-            stopover: true
+          
+          const panoEl = document.getElementById('pano');
+          panoEl.style.display = 'block';
+          new google.maps.StreetViewPanorama(panoEl, {
+            position: position,
+            pov: { heading: 165, pitch: 0 },
+            zoom: 1
           });
-        }
-
-        directionsService.route({
-          origin: origin,
-          destination: destination,
-          waypoints: waypoints,
-          optimizeWaypoints: false,
-          travelMode: google.maps.TravelMode.DRIVING
-
+panoEl.scrollIntoView({ behavior: 'smooth' });
+});
+ul.appendChild(li);
+});
+sidebarContent.innerHTML = '';
+sidebarContent.appendChild(ul);
+// 道路規劃與劃線演算法
+try {
+const directionsService = new google.maps.DirectionsService();
+const origin = pathCoordinates[0];
+const destination = pathCoordinates[pathCoordinates.length - 1];
+const waypoints = [];
+for (let i = 1; i < pathCoordinates.length - 1; i++) {
+waypoints.push({
+location: pathCoordinates[i],
+stopover: true
+});
+}
+directionsService.route({
+origin: origin,
+destination: destination,
+waypoints: waypoints,
+optimizeWaypoints: false,
+travelMode: google.maps.TravelMode.DRIVING
 }, function(response, status) {
 if (status === google.maps.DirectionsStatus.OK) {
 const legs = response.routes.legs;
@@ -382,7 +400,6 @@ leg.steps.forEach(step => {
 step.path.forEach(point => roadPath.push(point));
 });
 });
-// 成功：繪製遵循道路的紅色軌跡線
 routeLine = new google.maps.Polyline({
 path: roadPath,
 geodesic: true,
@@ -392,22 +409,18 @@ strokeWeight: 5
 });
 routeLine.setMap(map);
 } else {
-console.warn('Google 導航引擎拒絕連線 (狀態碼: ' + status + ')，立刻啟用強置直線連線。');
-// 觸發強置防禦機制
+console.warn('Google 道路導航 API 規劃未通過，狀態碼: ' + status + '。改由強制直線繪製方案。');
 drawBackupStraightLine(pathCoordinates);
 }
 });
 } catch (err) {
-console.error('導航核心邏輯攔截錯誤，啟動直線對接機制：', err);
+console.error('導航引擎解析攔截錯誤，啟動直線對接機制：', err);
 drawBackupStraightLine(pathCoordinates);
 }
 map.fitBounds(bounds);
 }
-// 徹底將初始化掛載到全域視窗中
 window.initMap = initMap;
 
 </script>
- 
-</body>
+  </body>
 </html>
-
