@@ -471,8 +471,9 @@
       }
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ address: address }, function(results, status) {
-        if (status === 'OK' && results) {
-          const homePosition = results.geometry.location;
+        // ✅ 新增防禦性檢查：確保 results 不為空且第一筆結果有 geometry 物件
+        if (status === 'OK' && results && results.length > 0 && results[0].geometry) {
+          const homePosition = results[0].geometry.location;
           if (homeMarker) homeMarker.map = null;
           const homeTag = document.createElement("div");
           homeTag.className = "home-marker-pin";
@@ -511,7 +512,7 @@
         fullscreenControl: false
       });
       if (shouldScrollToMap) {
-        // 如果���點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
+        // 如果是點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
         document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
       } else {
         // 如果是點擊地圖標記：畫面平滑向下滾動，展示最底部的街景影像
