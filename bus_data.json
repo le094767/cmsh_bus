@@ -9,14 +9,14 @@
 ,
 {"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"大統玉山路口(馥醍麵包)","arrival_time":"06:35","lat":"23.471955867933843","lng":"120.42562888362787"}
 ,
-{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"金山大同路口(運動公園)","arrival_time":"06:40","lat":"23.4762460929893","lng":"120.42353787341548"}
+{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"2","stop_name":"金山大同路口(運動公園)","arrival_time":"06:40","lat":"23.4762460929893","lng":"120.42353787341548"}
 ,
-{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"長榮派出所(中山路)","arrival_time":"06:50","lat":"23.479372491866474","lng":"120.44310913660189"}
+{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"3","stop_name":"長榮派出所(中山路)","arrival_time":"06:50","lat":"23.479372491866474","lng":"120.44310913660189"}
 ,
-{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"三和食品(中山民生路口)","arrival_time":"06:55","lat":"23.479626747568922","lng":"120.44633880076252"}
+{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"4","stop_name":"三和食品(中山民生路口)","arrival_time":"06:55","lat":"23.479626747568922","lng":"120.44633880076252"}
 ,
-{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"台銀(義美鐘錶)","arrival_time":"07:00","lat":"23.47985891424177","lng":"120.44876843612803"}
+{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"5","stop_name":"台銀(義美鐘錶)","arrival_time":"07:00","lat":"23.47985891424177","lng":"120.44876843612803"}
 ,
-{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"稅務局(忠孝路)","arrival_time":"07:05","lat":"23.48183695247755","lng":"120.45406924736574"}
+{"route_id":"route_002","route_name":"嘉2車","direction":"上學","is_active":"TRUE","sequence":"6","stop_name":"稅務局(忠孝路)","arrival_time":"07:05","lat":"23.48183695247755","lng":"120.45406924736574"}
 
 ]
