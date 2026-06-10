@@ -28,6 +28,9 @@
     }
     .select-group {
       margin-bottom: 20px;
+      background: #f0f4f8;
+      padding: 15px;
+      border-radius: 6px;
     }
     label {
       font-weight: bold;
@@ -69,6 +72,7 @@
       width: 100%;
       border-radius: 6px;
       border: 1px solid #e5e7eb;
+      background-color: #eaeaea;
     }
     #pano {
       height: 300px;
@@ -76,11 +80,17 @@
       border-radius: 6px;
       border: 1px solid #e5e7eb;
       display: none;
+      margin-top: 20px;
     }
     .hint {
       font-size: 14px;
       color: #6b7280;
       margin-top: 5px;
+    }
+    .local-file-box {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #b91c1c;
     }
 
     /* 側邊欄時間軸樣式 */
@@ -155,9 +165,15 @@
     <div class="select-group">
       <label for="routeSelect">請選擇校車路線：</label>
       <select id="routeSelect" onchange="loadSelectedRoute()">
-        <option value="">-- 請選擇 --</option>
+        <option value="">-- 請先載入資料 --</option>
       </select>
       <p class="hint">💡 提示：點擊地圖標記或右側站點名稱，下方可查看 Google 實景街景影像。</p>
+      
+      <!-- 容錯備用機制：解決點兩下打開 HTML 被瀏覽器限制讀取 JSON 的問題 -->
+      <div class="local-file-box">
+        🛠️ <b>本機離線測試功能</b>：如果下拉選單沒跑出來，請點此選取您的 <b>bus_data.json</b>：
+        <input type="file" id="jsonFileInput" accept=".json" onchange="handleFileSelect(event)">
+      </div>
     </div>
     
     <div class="main-content">
@@ -175,7 +191,7 @@
     
     <div id="pano"></div>
   </div>
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA6X_jnYl1SBCbEPMiiTEHOCAudU3J451M&loading=async&callback=initMap"> </script>
+
   <script>
     let map;
     let globalData = [];
@@ -184,57 +200,75 @@
 
     // 1. 初始化 Google 地圖
     function initMap() {
-      try {
-        map = new google.maps.Map(document.getElementById('map'), {
-          center: { lat: 23.456, lng: 120.462 },
-          zoom: 12,
-          mapTypeControl: false
-        });
-        fetchRoutes();
-      } catch (e) {
-        console.error("Google 地圖初始化失敗，請檢查 API Key 是否有效:", e);
-      }
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 23.456, lng: 120.462 }, // 預設定位在您嘉義第一個站點附近
+        zoom: 12,
+        mapTypeControl: false
+      });
+      autoFetchJson();
     }
 
-
-    // 2. 讀取 JSON 資料
-    async function fetchRoutes() {
-      const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
-      
+    // 2-A. 自動讀取同資料夾底下的 JSON 檔案（上傳到 GitHub 後會自動運作此段）
+    async function autoFetchJson() {
+      // ⚠️ 如果已部署到 GitHub，請將 'bus_data.json' 替換為您在 GitHub 上的 Raw 遠端網址
+      const JSON_URL = 'https://raw.githubusercontent.com/le094767/cmsh_bus/refs/heads/main/bus_data.json';
       try {
-        const response = await fetch(GITHUB_JSON_URL);
-        if (!response.ok) throw new Error('網路回應不成功');
-        globalData = await response.json();
-        
-        const uniqueRoutes = [];
-        const seen = new Set();
-        
-        globalData.forEach(row => {
-          if (row.route_id && !seen.has(row.route_id)) {
-            seen.add(row.route_id);
-            uniqueRoutes.push({ id: row.route_id, name: row.route_name });
-          }
-        });
-
-        const select = document.getElementById('routeSelect');
-        uniqueRoutes.forEach(route => {
-          const opt = document.createElement('option');
-          opt.value = route.id;
-          opt.innerText = route.name;
-          select.appendChild(opt);
-        });
-        
+        const response = await fetch(JSON_URL);
+        if (!response.ok) throw new Error('CORS 阻擋或檔案不存在');
+        const data = await response.json();
+        processRouteData(data);
       } catch (error) {
-        console.error('讀取校車資料失敗:', error);
-        alert('無法載入校車路線資料，請檢查 JSON 檔案。');
+        console.warn('自動讀取本地 JSON 被瀏覽器核心阻擋，請手動使用【選擇檔案】按鈕載入。', error);
       }
     }
 
-   // 3. 切換路線
+    // 2-B. 離線容錯機制：手動選擇檔案載入（完全無視瀏覽器的本機限制）
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          processRouteData(data);
+          alert('校車資料載入成功！請點選上方下拉選單切換路線。');
+        } catch (err) {
+          alert('讀取失敗，請確認選擇的檔案是否為正確的 JSON 格式。');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // 2-C. 解析 JSON 並把路線塞進選單
+    function processRouteData(data) {
+      globalData = data;
+      const uniqueRoutes = [];
+      const seen = new Set();
+      
+      globalData.forEach(row => {
+        if (row.route_id && !seen.has(row.route_id)) {
+          seen.add(row.route_id);
+          uniqueRoutes.push({ id: row.route_id, name: row.route_name });
+        }
+      });
+
+      const select = document.getElementById('routeSelect');
+      select.innerHTML = '<option value="">-- 請選擇路線 --</option>';
+      
+      uniqueRoutes.forEach(route => {
+        const opt = document.createElement('option');
+        opt.value = route.id;
+        opt.innerText = route.name;
+        select.appendChild(opt);
+      });
+    }
+
+    // 3. 切換路線：渲染地圖與右側清單
     function loadSelectedRoute() {
       const selectedRouteId = document.getElementById('routeSelect').value;
       const sidebarContent = document.getElementById('sidebarContent');
       
+      // 清空舊的標記與線段
       markers.forEach(m => m.setMap(null));
       markers = [];
       if (routeLine) {
@@ -248,6 +282,7 @@
         return;
       }
 
+      // 精準過濾並排序（相容您的大小寫 "TRUE" 與字串型態的 sequence）
       const routeStops = globalData
         .filter(row => row.route_id === selectedRouteId && (row.is_active === true || row.is_active === "TRUE"))
         .sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
@@ -268,43 +303,42 @@
         pathCoordinates.push(position);
         bounds.extend(position);
 
-        // A. 地圖標記
-        if (typeof google !== 'undefined' && google.maps) {
-          const marker = new google.maps.Marker({
+        // A. 地圖上的 Marker
+        const marker = new google.maps.Marker({
+          position: position,
+          map: map,
+          label: {
+            text: stop.sequence.toString(),
+            color: "#ffffff",
+            fontWeight: "bold"
+          },
+          title: `${stop.stop_name} (${stop.arrival_time})`,
+          zIndex: 99
+        });
+        markers.push(marker);
+
+        // 懸停顯示小視窗
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
+        });
+        marker.addListener('mouseover', () => infoWindow.open(map, marker));
+        marker.addListener('mouseout', () => infoWindow.close());
+
+        // 觸發街景函數
+        const triggerStreetView = () => {
+          const panoEl = document.getElementById('pano');
+          panoEl.style.display = 'block';
+          new google.maps.StreetViewPanorama(panoEl, {
             position: position,
-            map: map,
-            label: {
-              text: stop.sequence.toString(),
-              color: "#ffffff",
-              fontWeight: "bold"
-            },
-            title: `${stop.stop_name} (${stop.arrival_time})`,
-            zIndex: 99
+            pov: { heading: 165, pitch: 0 },
+            zoom: 1
           });
-          markers.push(marker);
+          panoEl.scrollIntoView({ behavior: 'smooth' });
+        };
 
-          const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="padding:5px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
-          });
+        marker.addListener('click', triggerStreetView);
 
-          marker.addListener('mouseover', () => infoWindow.open(map, marker));
-          marker.addListener('mouseout', () => infoWindow.close());
-
-          const triggerStreetView = () => {
-            const panoEl = document.getElementById('pano');
-            panoEl.style.display = 'block';
-            new google.maps.StreetViewPanorama(panoEl, {
-              position: position,
-              pov: { heading: 165, pitch: 0 },
-              zoom: 1
-            });
-            panoEl.scrollIntoView({ behavior: 'smooth' });
-          };
-
-          marker.addListener('click', triggerStreetView);
-        }
-
-        // B. 生成右側清單項目
+        // B. 右側時刻表項目
         const li = document.createElement('li');
         li.className = 'stop-item';
         li.innerHTML = `
@@ -316,18 +350,9 @@
         `;
         
         li.addEventListener('click', () => {
-          if (typeof google !== 'undefined' && google.maps) {
-            map.setCenter(position);
-            map.setZoom(16);
-            const panoEl = document.getElementById('pano');
-            panoEl.style.display = 'block';
-            new google.maps.StreetViewPanorama(panoEl, {
-              position: position,
-              pov: { heading: 165, pitch: 0 },
-              zoom: 1
-            });
-            panoEl.scrollIntoView({ behavior: 'smooth' });
-          }
+          map.setCenter(position);
+          map.setZoom(16);
+          triggerStreetView();
         });
 
         ul.appendChild(li);
@@ -336,54 +361,59 @@
       sidebarContent.innerHTML = '';
       sidebarContent.appendChild(ul);
 
-      // 4. 呼叫 Google Directions API 進行真實道路連線
-      if (typeof google !== 'undefined' && google.maps && google.maps.DirectionsService) {
-        const directionsService = new google.maps.DirectionsService();
-        
-        // ✅ 已修正：精準抓取陣列物件中的經緯度
-        const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
-        const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
-        
-        const waypoints = [];
-        for (let i = 1; i < routeStops.length - 1; i++) {
-          waypoints.push({
-            location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
-            stopover: true
-          });
-        }
+      // 4. 呼叫 Google Directions API 依道路路徑連線
+      const directionsService = new google.maps.DirectionsService();
+      
+      // ✨ 精準修正：提取陣列的第一站與最後一站作為導航端點
+      const origin = { lat: parseFloat(routeStops[0].lat), lng: parseFloat(routeStops[0].lng) };
+const destination = { lat: parseFloat(routeStops[routeStops.length - 1].lat), lng: parseFloat(routeStops[routeStops.length - 1].lng) };
+const waypoints = [];
+for (let i = 1; i < routeStops.length - 1; i++) {
+waypoints.push({
+location: { lat: parseFloat(routeStops[i].lat), lng: parseFloat(routeStops[i].lng) },
+stopover: true
+});
+}
+directionsService.route({
+origin: origin,
+destination: destination,
+waypoints: waypoints,
+optimizeWaypoints: false,
+travelMode: google.maps.TravelMode.DRIVING
+}, function(response, status) {
+if (status === google.maps.DirectionsStatus.OK) {
+const legs = response.routes.legs;
+const roadPath = [];
+legs.forEach(leg => {
+leg.steps.forEach(step => {
+step.path.forEach(point => roadPath.push(point));
+});
+});
+routeLine = new google.maps.Polyline({
+path: roadPath,
+geodesic: true,
+strokeColor: '#ef4444',
+strokeOpacity: 0.8,
+strokeWeight: 5
+});
+routeLine.setMap(map);
+} else {
+console.warn('道路路徑規劃不可用（原因: ' + status + '），自動切換為直線連線。');
+drawBackupStraightLine(routeStops);
+}
+});
+map.fitBounds(bounds);
+}
+// 備用直線連線方案
+function drawBackupStraightLine(routeStops) {
+const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));
+routeLine = new google.maps.Polyline({
+path: pathCoordinates,
+geodesic: true,
+strokeColor: '#ffbb00',
+strokeOpacity: 0.8,
+strokeWeight: 4
+});
+routeLine.setMap(map);
+}
 
-        directionsService.route({
-          origin: origin,
-          destination: destination,
-          waypoints: waypoints,
-          optimizeWaypoints: false,
-          travelMode: google.maps.TravelMode.DRIVING
-        }, function(response, status) {
-          if (status === google.maps.DirectionsStatus.OK) 
-          {const legs = response.routes.legs;
-           const roadPath = [];
-           legs.forEach(leg => {
-             leg.steps.forEach(step => {
-               step.path.forEach(point => roadPath.push(point));
-             });
-           });
-           
-           routeLine = new google.maps.Polyline({
-             path: roadPath,
-             geodesic: true,
-             strokeColor: '#ef4444',
-             strokeOpacity: 0.8,
-             strokeWeight: 5});
-           routeLine.setMap(map);
-          } else {
-            console.error('道路路徑規劃失敗，啟用直線備用方案:', status);
-            drawBackupStraightLine(routeStops);
-          }
-        });
-        map.fitBounds(bounds);
-      } else {
-        // 如果沒有 Google Map 環境，依然繪製文字介面與備用直線
-        drawBackupStraightLine(routeStops);}}
-    
-    // 直線備用方案
-    function drawBackupStraightLine(routeStops) {if (typeof google === 'undefined' || !google.maps) return;const pathCoordinates = routeStops.map(stop => ({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) }));routeLine = new google.maps.Polyline({path: pathCoordinates,geodesic: true,strokeColor: '#ffbb00',strokeOpacity: 0.8,strokeWeight: 4});routeLine.setMap(map);}
