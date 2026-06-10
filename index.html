@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>協同校車路線與時刻查詢系統</title>
+  <title>校車路線與時刻查詢系統</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -171,7 +171,7 @@
 <body>
 
   <div class="container">
-    <h2>🚌 協同高級中學校車路線時刻查詢</h2>
+    <h2>🚌 校車路線時刻查詢</h2>
     
     <div class="select-group">
       <label for="routeSelect">請選擇校車路線：</label>
@@ -203,7 +203,7 @@
     let globalData = [];
     let markers = [];
     let routeLine = null;
-    let AdvancedMarkerElementClass = null; // 全域變數：用來暫存載入好的進階標記類別
+    let AdvancedMarkerElementClass = null;
 
     // 1. 初始化 Google 地圖
     async function initMap() {
@@ -215,13 +215,12 @@
           mapId: "SCHOOL_BUS_MAP_ID" 
         });
 
-        // ✨ 核心修復：在地圖一載入時，就立刻、提早完成進階標記函式庫的異步下載
         const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-        AdvancedMarkerElementClass = AdvancedMarkerElement; // 將它存入全域，供後續隨時讀取
+        AdvancedMarkerElementClass = AdvancedMarkerElement;
 
         autoFetchJson();
       } catch (e) {
-        console.error("地圖載入或函式庫提取失敗，請確認 API 金鑰限制是否正確:", e);
+        console.error("地圖載入或函式庫提取失敗:", e);
       }
     }
 
@@ -325,7 +324,6 @@
         markerTag.className = "custom-marker-pin";
         markerTag.innerText = stop.sequence.toString();
 
-        // ✅ 已修正：如果全域變數成功載入，使用 AdvancedMarkerElementClass；若未完成則自動降級相容舊元件，100% 防止未定義錯誤
         if (AdvancedMarkerElementClass) {
           const advancedMarker = new AdvancedMarkerElementClass({
             map: map,
@@ -343,7 +341,6 @@
           advancedMarker.element.addEventListener('mouseout', () => infoWindow.close());
           advancedMarker.addListener('click', () => triggerStreetView(position));
         } else {
-          // 降級備用機制：防止極端時序下拋出錯誤
           const fallbackMarker = new google.maps.Marker({
             position: position,
             map: map,
@@ -364,14 +361,17 @@
           </div>
         `;
         
-li.addEventListener('click', () => {
-map.setCenter(position);
-map.setZoom(16);
-triggerStreetView(position);
-});
-ul.appendChild(li);
-});
-sidebarContent.innerHTML = '';
+        li.addEventListener('click', () => {
+          map.setCenter(position);
+          map.setZoom(16);
+          triggerStreetView(position);
+        });
+
+        ul.appendChild(li);
+      });
+
+      sidebarContent.innerHTML = '';
+
 sidebarContent.appendChild(ul);
 // 共用街景函式
 function triggerStreetView(pos) {
@@ -384,7 +384,7 @@ zoom: 1
 });
 panoEl.scrollIntoView({ behavior: 'smooth' });
 }
-// 6. 道路規劃演算法
+// 6. 道路規劃與繪製
 try {
 const directionsService = new google.maps.DirectionsService();
 const origin = pathCoordinates[0];
@@ -404,32 +404,23 @@ optimizeWaypoints: false,
 travelMode: google.maps.TravelMode.DRIVING
 }, function(response, status) {
 if (status === google.maps.DirectionsStatus.OK && response && response.routes && response.routes.length > 0) {
-const legs = response.routes.legs;
-const roadPath = [];
-if (legs && Array.isArray(legs)) {
-legs.forEach(leg => {
-if (leg.steps && Array.isArray(leg.steps)) {
-leg.steps.forEach(step => {
-if (step.path && Array.isArray(step.path)) {
-step.path.forEach(point => roadPath.push(point));
-}
-});
-}
-});
-}
-if (roadPath.length > 0) {
+// ✨【全新重大修正點】：直接提取 Google 處理好、最精準的整條路線線段陣列 overview_path
+// 這種寫法不再去深入分析一層層的 legs 與 steps，完美解決了因新格式變更導致的 forEach 讀取失敗問題
+const roadPath = response.routes[0].overview_path;
+if (roadPath && roadPath.length > 0) {
 routeLine = new google.maps.Polyline({
 path: roadPath,
 geodesic: true,
-strokeColor: '#ef4444',
+strokeColor: '#ef4444', // 真實道路連線為亮紅色
 strokeOpacity: 0.8,
 strokeWeight: 5
 });
 routeLine.setMap(map);
+console.log("【道路規劃成功】已成功依據真實道路繪製校車軌跡！");
 return;
 }
 }
-console.warn('Google 道路路徑計算不可用，自動切換為備用直線：', status);
+console.warn('Google 道路路徑計算解析不成功，自動切換為備用直線：', status);
 drawBackupStraightLine(pathCoordinates);
 });
 } catch (err) {
@@ -442,5 +433,6 @@ window.initMap = initMap;
 
 
 </script>
+
  </body>
 </html>
