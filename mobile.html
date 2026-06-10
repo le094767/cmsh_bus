@@ -382,7 +382,7 @@
           const infoWindow = new google.maps.InfoWindow({
             content: `<div style="padding:5px;font-size:14px;"><strong>[${stop.route_name}] ${stop.stop_name}</strong><br>時間：${stop.arrival_time}</div>`
           });
-          advancedMarker.addListener('click', () => {
+          advancedMarker.addEventListener('gmp-click', () => {
             infoWindow.open(map, advancedMarker);
             triggerStreetView(position, false); // 點擊地圖時，街景在最下方載入，不強制奪取焦點
           });
@@ -433,7 +433,7 @@
           const infoWindow = new google.maps.InfoWindow({
             content: `<div style="padding:5px;font-size:14px;"><strong>${stop.stop_name}</strong><br>預估到站時間：${stop.arrival_time}</div>`
           });
-          advancedMarker.addListener('click', () => {
+          advancedMarker.addEventListener('gmp-click', () => {
             infoWindow.open(map, advancedMarker);
             triggerStreetView(position, false);
           });
@@ -447,7 +447,7 @@
         }
         const li = document.createElement('li');
         li.className = 'stop-item';
-        li.innerHTML = `<div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml} </div>`;
+        li.innerHTML = `<div class="stop-badge" style="background-color: ${currentRouteColor};">${stop.sequence}</div> <div class="stop-info"> <div class="stop-name">${stop.stop_name}</div> ${timeInfoHtml}</div>`;
         // 💡 手機核心互動：家長點選下方列表時，地圖飄移過去，並自動將網頁焦點滑動回頂部地圖，方便一邊看時間一邊看地圖變化
         li.addEventListener('click', () => {
           map.setCenter(position);
@@ -511,7 +511,7 @@
         fullscreenControl: false
       });
       if (shouldScrollToMap) {
-        // 如果是點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
+        // 如果���點擊下方列表：畫面平滑滑回最頂端的地圖，看標記點
         document.getElementById('mapTarget').scrollIntoView({ behavior: 'smooth' });
       } else {
         // 如果是點擊地圖標記：畫面平滑向下滾動，展示最底部的街景影像
