@@ -31,7 +31,7 @@
 ,
 {"route_id":"route_003","route_name":"嘉3車","direction":"上學","is_active":"TRUE","sequence":"5","stop_name":"寶島餐廳(北港路)","arrival_time":"06:50","lat":"23.492852","lng":"120.395414"}
 ,
-{"route_id":"route_003","route_name":"嘉3車","direction":"上學","is_active":"TRUE","sequence":"6","stop_name":"大溪厝(牌坊前)","arrival_time":"06:60","lat":"23.485994","lng":"120.417119"}
+{"route_id":"route_003","route_name":"嘉3車","direction":"上學","is_active":"TRUE","sequence":"6","stop_name":"大溪厝(牌坊前)","arrival_time":"06:55","lat":"23.485994","lng":"120.417119"}
 ,
 {"route_id":"route_004","route_name":"嘉4車","direction":"上學","is_active":"TRUE","sequence":"1","stop_name":"桃花源停車場","arrival_time":"06:38","lat":"23.480207","lng":"120.484437"}
 ,
